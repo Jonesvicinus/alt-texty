@@ -1552,6 +1552,7 @@ function _scRenderAllImagesPanel() {
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Image src</th>
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Alt text</th>
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Page${groups.some(g => g.pages.length > 1) ? '(s)' : ''} where used</th>
+              <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);width:110px;">Alt Text AI</th>
         </tr>
       </thead>
       <tbody>
@@ -1568,6 +1569,9 @@ function _scRenderAllImagesPanel() {
               <td title="${safeSrc}" style="padding:6px 10px;word-break:break-all;white-space:normal;"><a href="${safeSrc}" target="_blank" style="color:var(--accent);">${safeSrc}</a></td>
               <td title="${escapeHtml(first.alt || '')}" style="padding:6px 10px;white-space:normal;">${altHtml}</td>
               <td style="padding:6px 10px;white-space:normal;">${pagesHtml}</td>
+              <td style="padding:6px 8px;">
+                ${first.classification !== 'present' ? `<button onclick="_altGenerate(this)" data-src="${safeSrc}" data-page="${escapeHtml(g.pages && g.pages[0] ? g.pages[0] : '')}" data-cls="${escapeHtml(first.classification)}" style="background:#7c3aed;color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">Generate</button>` : ''}
+              </td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -5538,4 +5542,112 @@ function _scRenderAnchorTextCloud() {
     <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center;">
       Top ${items.length} anchor text${items.length===1?'':'s'} used in internal links · size = frequency. Red border / ⚠ = generic anchor (rewrite recommended).
     </div>`;
+}
+
+function _altGenerate(btn) {
+  const tr = btn.closest('tr');
+  const src = btn.dataset.src;
+  const page = btn.dataset.page || '';
+  const cls = btn.dataset.cls || 'missing';
+
+  // Remove any previous result row for this image
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('alt-result-row')) next.remove();
+
+  // Show loading state
+  btn.disabled = true;
+  btn.textContent = '…';
+  tr.style.borderLeft = '3px solid #7c3aed';
+
+  const resultRow = document.createElement('tr');
+  resultRow.className = 'alt-result-row';
+  resultRow.dataset.cls = tr.dataset.cls;
+  resultRow.innerHTML = `<td colspan="5" style="padding:8px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+    <span style="color:#7c3aed;font-size:11px;">Generating alt text…</span>
+  </td>`;
+  tr.after(resultRow);
+
+  fetch('/generate-alt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ src, page_url: page, classification: cls })
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate';
+    btn.style.background = '#6b7280';
+    tr.style.borderLeft = '';
+
+    if (data.error === 'image_fetch_failed') {
+      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+        <div style="font-size:11px;color:#ef4444;margin-bottom:6px;">Image unavailable — enter alt text manually:</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;"></textarea>
+          <button onclick="_altCopy(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;">Copy</button>
+        </div>
+      </td>`;
+      return;
+    }
+
+    if (data.error) {
+      const safeSrc2 = escapeHtml(src);
+      const safePage2 = escapeHtml(page);
+      const safeCls2 = escapeHtml(cls);
+      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
+        <span style="color:#ef4444;font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
+        <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+      </td>`;
+      return;
+    }
+
+    const roleColors = { informative: '#7c3aed', functional: '#2563eb', decorative: '#6b7280', complex: '#d97706' };
+    const confColors = { high: '#16a34a', medium: '#d97706', low: '#ef4444' };
+    const roleColor = roleColors[data.role] || '#6b7280';
+    const confColor = confColors[data.confidence] || '#6b7280';
+    const warningHtml = data.warnings && data.warnings.length
+      ? `<div style="margin-top:6px;padding:4px 8px;background:#fef3c7;border-radius:4px;font-size:10px;color:#92400e;">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
+      : '';
+
+    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="background:${roleColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.role)}</span>
+        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence)} confidence</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:#374151;">${escapeHtml(data.recommended_alt || '')}</textarea>
+        <button onclick="_altCopy(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
+      </div>
+      <div style="margin-top:5px;font-size:10px;color:#6b7280;font-style:italic;">${escapeHtml(data.rationale || '')}</div>
+      ${warningHtml}
+    </td>`;
+  })
+  .catch(err => {
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+    btn.style.background = '#7c3aed';
+    tr.style.borderLeft = '';
+    const safeSrc2 = escapeHtml(src);
+    const safePage2 = escapeHtml(page);
+    const safeCls2 = escapeHtml(cls);
+    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
+      <span style="color:#ef4444;font-size:11px;">Network error — is the app running?</span>
+      <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+    </td>`;
+  });
+}
+
+function _altCopy(btn) {
+  const textarea = btn.closest('td').querySelector('textarea');
+  if (!textarea) return;
+  const fallback = () => { textarea.select(); document.execCommand('copy'); };
+  if (!navigator.clipboard) { fallback(); return; }
+  navigator.clipboard.writeText(textarea.value)
+    .then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.background = '#16a34a';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = '#7c3aed'; }, 1500);
+    })
+    .catch(fallback);
 }

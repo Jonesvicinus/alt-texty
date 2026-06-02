@@ -31,3 +31,5 @@ ACCESS_URLS.txt
 autostart.log
 install.log
 install.ps1
+.venv
+docs/
