@@ -1,50 +1,54 @@
 * { box-sizing: border-box; }
 :root {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface2: #334155;
-  --border: #475569;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  /* --accent bumped from #3b82f6 (blue-500, ~3.68:1 with white text — fails
-     body 4.5) to #2563eb (blue-600, ~5.17:1) so primary CTAs (Start crawl,
-     Apply, Analyse) and ci-count badges pass WCAG body. */
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  --bg: #F6F7F8;
+  --surface: #ffffff;
+  --surface2: #eef4f7;
+  --border: #D9DCDF;
+  --text: #131212;
+  --text-muted: #6E6E6E;
+  --accent: #008BB3;
+  --accent-hover: #007296;
+  /* Sidebar chrome (always dark navy regardless of body theme) */
+  --sb-bg: #203B56;
+  --sb-text: rgba(255,255,255,.85);
+  --sb-muted: rgba(255,255,255,.5);
+  --sb-input: rgba(255,255,255,.08);
+  --sb-divider: rgba(255,255,255,.08);
+  --sb-card: rgba(255,255,255,.06);
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #ffffff;
-    --surface: #f8fafc;
-    --surface2: #e2e8f0;
-    --border: #cbd5e1;
-    --text: #0f172a;
-    --text-muted: #64748b;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
+    --bg: #F6F7F8;
+    --surface: #ffffff;
+    --surface2: #eef4f7;
+    --border: #D9DCDF;
+    --text: #131212;
+    --text-muted: #6E6E6E;
+    --accent: #008BB3;
+    --accent-hover: #007296;
   }
 }
-/* Explicit theme overrides — JS toggle sets [data-theme] on <html>,
-   overriding the system preference. localStorage persists the choice. */
+/* Explicit theme overrides */
 [data-theme="light"] {
-  --bg: #ffffff;
-  --surface: #f8fafc;
-  --surface2: #e2e8f0;
-  --border: #cbd5e1;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
+  --bg: #F6F7F8;
+  --surface: #ffffff;
+  --surface2: #eef4f7;
+  --border: #D9DCDF;
+  --text: #131212;
+  --text-muted: #6E6E6E;
+  --accent: #008BB3;
+  --accent-hover: #007296;
 }
 [data-theme="dark"] {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface2: #334155;
-  --border: #475569;
-  --text: #f1f5f9;
-  --text-muted: #94a3b8;
-  --accent: #3b82f6;
-  --accent-hover: #2563eb;
+  --bg: #0d1d2a;
+  --surface: #152434;
+  --surface2: #1e3347;
+  --border: #2E5274;
+  --text: #F6F7F8;
+  --text-muted: #9AA0A6;
+  --accent: #00A8D6;
+  --accent-hover: #008BB3;
+  --sb-bg: #152434;
 }
 .theme-toggle {
   margin-left: auto;
@@ -52,16 +56,16 @@
   align-items: center;
   gap: 4px;
   padding: 5px 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 5px;
+  color: rgba(255,255,255,.7);
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+.theme-toggle:hover { color: #fff; background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.2); }
 .theme-toggle svg { width: 13px; height: 13px; }
 .topbar-btn {
   margin-left: 8px;
@@ -69,26 +73,34 @@
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-muted);
-  font-size: 11.5px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 5px;
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  transition: color .12s, border-color .12s;
+  transition: color .12s, border-color .12s, background .12s;
 }
-.topbar-btn:hover { color: var(--accent); border-color: var(--accent); }
-/* Push the first topbar-btn (Sitemap.xml) to the right edge so the
-   theme toggle and export buttons cluster together on the right. */
+.topbar-btn:hover { color: #fff; background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.2); }
 .topbar-btn:first-of-type { margin-left: auto; }
 
-/* Inline-style buttons can't be re-themed via tokens without !important.
-   These hardcoded #0f172a / #fff / #f1f5f9 patterns pre-date the dark
-   mode toggle — overriding them here keeps the markup untouched. */
-[data-theme="dark"] #crawler-load-btn,
-[data-theme="dark"] #crawler-save-btn,
-[data-theme="dark"] #crawler-compare-btn,
+/* Sidebar buttons are always on dark navy — override inline styles globally */
+#crawler-load-btn,
+#crawler-save-btn,
+#crawler-compare-btn {
+  background: rgba(255,255,255,.1) !important;
+  color: rgba(255,255,255,.8) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  border-radius: 5px !important;
+}
+#crawler-load-btn:hover,
+#crawler-save-btn:hover,
+#crawler-compare-btn:hover {
+  background: rgba(255,255,255,.18) !important;
+  color: #fff !important;
+}
+/* Non-sidebar export buttons and toolbar buttons */
 [data-theme="dark"] #crawler-bulk-recrawl-btn,
 [data-theme="dark"] #crawler-export-sitemap-btn,
 [data-theme="dark"] #crawler-export-view-btn,
@@ -160,40 +172,43 @@
 }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 14px;
+  font-size: 13px;
 }
 .topbar {
-  padding: 10px 22px;
-  border-bottom: 1px solid var(--border);
+  height: 52px;
+  flex-shrink: 0;
+  padding: 0 20px;
+  border-bottom: none;
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: var(--surface);
+  gap: 16px;
+  background: var(--sb-bg);
 }
 .brand {
+  font-family: 'Roboto Slab', Georgia, serif;
   font-weight: 700;
   font-size: 15px;
   letter-spacing: -0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
-  color: var(--text);
+  color: #fff;
 }
 .brand svg {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.25);
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
 }
 .sub {
-  color: var(--text-muted);
-  font-size: 11.5px;
+  color: var(--sb-muted);
+  font-size: 11px;
   padding-left: 14px;
-  border-left: 1px solid var(--border);
+  border-left: 1px solid rgba(255,255,255,.15);
   letter-spacing: 0.01em;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
 }
 .wrap {
   display: grid;
@@ -204,117 +219,105 @@ body {
 .wrap.nosb {
   grid-template-columns: 300px 1fr;
 }
-.sidebar, .issues-sidebar {
+.sidebar {
+  border-right: none;
+  overflow-y: auto;
+  background: var(--sb-bg);
+  min-height: 0;
+}
+.issues-sidebar {
   border-right: 1px solid var(--border);
   overflow-y: auto;
   background: var(--surface);
-  min-height: 0;  /* allow flex children to shrink so overflow-y:auto kicks in */
+  min-height: 0;
 }
-.sidebar { padding: 18px 16px; }
-.issues-sidebar { padding: 10px 8px; }
-.sidebar label { display: block; font-size: 12px; margin-bottom: 12px; }
+.sidebar { padding: 20px 16px; }
+.issues-sidebar { padding: 10px 0; }
+.sidebar label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sb-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
 .sidebar input[type=url], .sidebar textarea {
   width: 100%;
-  padding: 8px 10px;
-  /* Use surface2 (one step lighter than the sidebar's own surface) so
-     the field clearly sits above the panel background in dark mode.
-     Earlier --bg = same as page bg, --surface = same as sidebar; both
-     made the field invisible until focused. */
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font: inherit;
+  padding: 7px 10px;
+  background: var(--sb-input);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  font-size: 12px;
   margin-top: 4px;
   outline: none;
-  transition: border-color .12s, box-shadow .12s, background-color .12s;
+  transition: box-shadow .15s;
 }
 .sidebar input[type=url]:hover,
 .sidebar textarea:hover {
-  border-color: #64748b;
+  background: rgba(255,255,255,.12);
 }
 .sidebar input[type=url]:focus,
 .sidebar textarea:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99,102,241,.18);
-  background: var(--surface2);
+  box-shadow: 0 0 0 2px var(--accent);
+  background: rgba(255,255,255,.1);
 }
 .sidebar input[type=url]::placeholder,
 .sidebar textarea::placeholder {
-  color: #94a3b8;
-  opacity: .7;
+  color: rgba(255,255,255,.3);
 }
-@media (prefers-color-scheme: light) {
-  .sidebar input[type=url],
-  .sidebar textarea {
-    background: #ffffff;
-  }
-}
-/* Explicit data-theme="light" mirror — beats the OS-preference media
-   query so the manual toggle wins. Same for dark in case the OS is
-   light but the user toggled the app to dark. */
-[data-theme="light"] .sidebar input[type=url],
-[data-theme="light"] .sidebar textarea {
-  background: #ffffff;
-}
-[data-theme="dark"] .sidebar input[type=url],
-[data-theme="dark"] .sidebar textarea {
-  background: var(--surface2);
-  color: var(--text);
-}
-.sidebar textarea { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
-.slider-row input[type=range] { width: 100%; margin-top: 3px; }
-/* Block layout (not flex) so the label text + <small> flow as inline
-   text and wrap naturally — flex made each child its own column and
-   broke "Ignore noindex" / "Sitemap analysis" labels into stacked
-   blocks that wrapped weirdly. */
-.sidebar .check { display: block; padding: 5px 0; line-height: 1.45; cursor: pointer; font-size: 12.5px; color: var(--text); }
-.sidebar .check input[type="checkbox"] { vertical-align: middle; margin-right: 7px; transform: translateY(-1px); }
-.sidebar .check small { color: var(--text-muted); font-size: 11.5px; font-weight: 400; }
-.filters { margin: 10px 0; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; }
-.filters summary { font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 8px 0; cursor: pointer; }
+.sidebar textarea { font-family: 'IBM Plex Mono', ui-monospace, Menlo, monospace; font-size: 11px; }
+.slider-row input[type=range] { width: 100%; margin-top: 3px; accent-color: var(--accent); }
+.sidebar .check { display: block; padding: 5px 0; line-height: 1.45; cursor: pointer; font-size: 12px; color: var(--sb-text); }
+.sidebar .check input[type="checkbox"] { vertical-align: middle; margin-right: 7px; transform: translateY(-1px); accent-color: var(--accent); }
+.sidebar .check small { color: var(--sb-muted); font-size: 11px; font-weight: 400; }
+.filters { margin: 10px 0; padding: 0 10px; border: 1px solid var(--sb-divider); border-radius: 5px; }
+.filters summary { font-size: 11px; font-weight: 600; color: var(--sb-muted); padding: 8px 0; cursor: pointer; }
 .filters label { margin-top: 8px; }
-.filters small { color: var(--text-muted); font-size: 10px; }
-/* Secondary buttons (Apply to current crawl etc.) — match the visual
-   weight of the primary CTA without competing with it. */
+.filters small { color: var(--sb-muted); font-size: 10px; }
 .btn-secondary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
-  font: inherit;
+  padding: 6px 14px;
+  background: rgba(255,255,255,.12);
+  border: none;
+  border-radius: 5px;
+  color: rgba(255,255,255,.8);
+  font-family: 'Montserrat', inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: border-color .12s, background-color .12s, color .12s;
+  transition: background .15s;
 }
 .btn-secondary:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--surface2);
+  background: rgba(255,255,255,.2);
+  color: #fff;
 }
 .btn-secondary:disabled {
-  opacity: .55;
+  opacity: .45;
   cursor: not-allowed;
 }
 
 .actions { display: flex; gap: 8px; margin-top: 8px; }
 .actions button {
   flex: 1;
-  padding: 9px 14px;
+  padding: 8px 14px;
   border: none;
   border-radius: 5px;
   background: var(--accent);
   color: #fff;
+  font-family: 'Montserrat', inherit;
   font-weight: 600;
+  font-size: 12px;
   cursor: pointer;
+  transition: background .15s;
 }
 .actions button:hover { background: var(--accent-hover); }
 #crawler-stop-btn { background: #ef4444; }
+#crawler-stop-btn:hover { background: #dc2626; }
 .stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -322,33 +325,35 @@ body {
   margin-top: 16px;
 }
 .stats div {
-  background: var(--surface2);
-  border-radius: 5px;
-  padding: 8px;
+  background: var(--sb-card);
+  border-radius: 6px;
+  padding: 10px 12px;
   text-align: center;
 }
-.stats span { display: block; font-size: 10px; color: var(--text-muted); text-transform: uppercase; }
-.stats strong { font-size: 16px; }
+.stats span { display: block; font-size: 10px; color: rgba(255,255,255,.45); text-transform: uppercase; font-family: 'IBM Plex Mono', ui-monospace, monospace; letter-spacing: .03em; margin-top: 2px; }
+.stats strong { font-size: 22px; color: #fff; font-family: 'Roboto Slab', Georgia, serif; line-height: 1; }
 
 /* Issues sidebar */
 .ci-cat {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 10px;
-  border-radius: 5px;
+  padding: 7px 16px 7px 13px;
+  border-left: 3px solid transparent;
   cursor: pointer;
   font-size: 12px;
-  margin: 1px 0;
-  color: var(--text);
+  margin: 0;
+  color: var(--text-muted);
+  transition: background .1s;
 }
-.ci-cat:hover { background: var(--surface2); }
-.ci-cat.active { background: var(--accent); color: #fff; }
-.ci-cat.active .ci-count { color: #fff; }
+.ci-cat:hover { background: var(--bg); }
+.ci-cat.active { background: #CCE8F0; border-left-color: var(--accent); color: var(--accent); font-weight: 600; }
+.ci-cat.active .ci-count { color: var(--accent); }
 .ci-cat[data-hidden="1"] { display: none; }
 .ci-count {
   font-size: 11px;
   font-weight: 700;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   color: var(--text-muted);
   min-width: 24px;
   text-align: right;
@@ -385,10 +390,10 @@ body {
 .cat-label {
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: .06em;
   color: var(--text-muted);
   font-weight: 700;
-  padding: 12px 10px 4px;
+  padding: 8px 16px 4px;
 }
 .sitemap-status {
   margin: 4px 8px 6px;
@@ -444,7 +449,7 @@ body {
 .sev-num { font-size: 14px; font-weight: 700; }
 .sev-lbl.err, .sev-num.err { color: #ef4444; }
 .sev-lbl.warn, .sev-num.warn { color: #f59e0b; }
-.sev-lbl.info, .sev-num.info { color: #3b82f6; }
+.sev-lbl.info, .sev-num.info { color: #008BB3; }
 
 /* Main content — flex column: banner/info/results/dock stack, table scrolls inside results */
 .main { overflow: hidden; padding: 0; display: flex; flex-direction: column; min-height: 0; }
@@ -479,8 +484,9 @@ body {
   white-space: nowrap;
 }
 #crawler-table thead th {
-  background: var(--surface);
-  font-weight: 600;
+  background: var(--bg);
+  font-weight: 700;
+  font-size: 11px;
   position: sticky;
   top: 0;
   z-index: 1;
@@ -489,6 +495,7 @@ body {
   text-align: left;
   user-select: none;
 }
+#crawler-tbody tr:hover td { background: #CCE8F0; }
 #crawler-table thead th .th-label {
   display: block;
   padding: 6px 10px 6px 8px;
@@ -525,25 +532,26 @@ body {
 }
 body.is-col-resizing { cursor: col-resize !important; user-select: none !important; }
 body.is-col-resizing * { cursor: col-resize !important; }
-.url-cell { color: var(--accent); cursor: pointer; }
+.url-cell { color: var(--accent); cursor: pointer; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 11px; }
 .url-cell:hover { text-decoration: underline; }
 .badge {
   display: inline-block;
-  padding: 1px 5px;
-  border-radius: 3px;
+  padding: 1px 7px;
+  border-radius: 99px;
   font-size: 10px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   margin: 1px;
-  font-weight: 600;
+  font-weight: 700;
 }
-.badge.error { background: rgba(239,68,68,.15); color: #ef4444; }
-.badge.warn  { background: rgba(245,158,11,.15); color: #f59e0b; }
-.badge.info  { background: rgba(59,130,246,.15); color: #3b82f6; }
+.badge.error { background: rgba(219,0,0,.1); color: #DB0000; }
+.badge.warn  { background: rgba(180,83,9,.1); color: #B45309; }
+.badge.info  { background: rgba(0,139,179,.1); color: #008BB3; }
 
 /* CMS banner + issue info */
 #crawler-cms-banner, #issue-info-box { padding: 10px 14px; }
 .cms-banner {
-  background: rgba(59,130,246,.08);
-  border: 1px solid rgba(59,130,246,.3);
+  background: rgba(0,139,179,.08);
+  border: 1px solid rgba(0,139,179,.3);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 12px;
@@ -561,7 +569,7 @@ body.is-col-resizing * { cursor: col-resize !important; }
 }
 .info-box {
   background: var(--surface2);
-  border-left: 3px solid var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   padding: 10px 12px;
   font-size: 12px;
@@ -703,7 +711,7 @@ body.is-col-resizing * { cursor: col-resize !important; }
 /* Row selection highlight — scope to any tbody, not just the main #crawler-tbody,
    so report panels (sitemap orphans, all values, etc.) get the same blue tint
    when drag-selected. */
-tbody tr.cr-selected { background: rgba(99,102,241,0.12) !important; }
+tbody tr.cr-selected { background: rgba(0,139,179,0.12) !important; }
 tbody tr.cr-selected td { background: transparent !important; }
 #crawler-tbody { user-select: none; }
 /* Any tbody whose rows are drag-selectable — disables text selection so a
@@ -713,7 +721,7 @@ tbody:has(tr[data-url]) { user-select: none; }
 /* Column sort indicator */
 .sc-sort-ind {
   font-size: 10px;
-  color: var(--accent, #6366f1);
+  color: var(--accent, #008BB3);
   margin-left: 2px;
   font-weight: 700;
 }
@@ -726,7 +734,7 @@ tbody:has(tr[data-url]) { user-select: none; }
   overflow: visible !important;
   max-width: none !important;
   word-break: break-all;
-  background: rgba(99, 102, 241, 0.06) !important;
+  background: rgba(0, 139, 179, 0.06) !important;
 }
 #crawler-tbody td.cs-cell-expanded > *,
 #crawler-tbody td.cs-cell-expanded span {
@@ -736,30 +744,28 @@ tbody:has(tr[data-url]) { user-select: none; }
   max-width: none !important;
 }
 
-/* Report tables (.crawler-grid) and sitemap-panel anchors render URLs in
-   dark blue (#4f46e5 inline / var(--accent) which is #3b82f6 in dark) on
-   the navy surface — unreadable. Force a brighter sky-blue in dark mode
-   and a darker blue in light. The !important is needed to beat inline
-   `style="color:..."` set by the JS row renderers. */
+/* Report tables (.crawler-grid) and sitemap-panel anchors — use explicit
+   teal tones so inline style="color:..." from JS row renderers are beaten
+   without landing on an unreadable hue against each theme's surface. */
 .crawler-grid td a,
 #sitemap-panel a {
-  color: #60a5fa !important;
+  color: #4DBFDC !important;
   text-decoration: underline;
-  text-decoration-color: rgba(96, 165, 250, 0.35);
+  text-decoration-color: rgba(77, 191, 220, 0.35);
   text-underline-offset: 2px;
 }
 .crawler-grid td a:hover,
 #sitemap-panel a:hover {
-  color: #93c5fd !important;
-  text-decoration-color: #93c5fd;
+  color: #7DD1E8 !important;
+  text-decoration-color: #7DD1E8;
 }
 [data-theme="light"] .crawler-grid td a,
 [data-theme="light"] #sitemap-panel a {
-  color: #1d4ed8 !important;
-  text-decoration-color: rgba(29, 78, 216, 0.35);
+  color: #007296 !important;
+  text-decoration-color: rgba(0, 114, 150, 0.35);
 }
 [data-theme="light"] .crawler-grid td a:hover,
 [data-theme="light"] #sitemap-panel a:hover {
-  color: #1e40af !important;
-  text-decoration-color: #1e40af;
+  color: #005A78 !important;
+  text-decoration-color: #005A78;
 }

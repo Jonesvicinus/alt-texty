@@ -185,3 +185,101 @@ def generate_alt():
     result = json.loads(completion.choices[0].message.content)
     result["warnings"] = _validate(result)
     return jsonify(result)
+
+
+_META_SYSTEM_PROMPT = """You are an SEO copywriter. Generate a compelling, click-worthy meta description for a web page.
+
+Rules:
+- 140–160 characters (absolute max 160)
+- Describe what the page delivers — specific and actionable, not vague
+- Include the primary keyword naturally, near the front if possible
+- Write for a human scanning search results, not for a crawler
+- No keyword stuffing. No generic filler ("This page is about…", "Learn more…")
+- Do not use quotation marks in the output
+
+Return JSON only: {"recommended": "...", "rationale": "...", "confidence": "high|medium|low"}"""
+
+_TITLE_SYSTEM_PROMPT = """You are an SEO copywriter. Generate a compelling title tag for a web page.
+
+Rules:
+- 50–60 characters (absolute max 65)
+- Primary keyword near the front
+- Human-readable, not stuffed
+- If the brand name fits, append it after a pipe: "Keyword-rich title | Brand"
+- Do not use quotation marks in the output
+
+Return JSON only: {"recommended": "...", "rationale": "...", "confidence": "high|medium|low"}"""
+
+
+@alt_text_bp.route("/generate-meta", methods=["POST"])
+def generate_meta():
+    data = request.get_json(silent=True) or {}
+    page_url = (data.get("page_url") or "").strip()
+    field = data.get("field", "meta")  # "meta" or "title"
+
+    if not page_url:
+        return jsonify({"error": "page_url is required"}), 400
+
+    # Validate URL is safe (same guard as images)
+    if not _is_safe_image_url(page_url):
+        return jsonify({"error": "invalid_url", "message": "URL must be http/https and not point to a local address"}), 400
+
+    # Fetch page to extract text context
+    body_text = ""
+    try:
+        resp = _requests.get(
+            page_url, timeout=8,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; BowstSEO/1.0)"},
+            allow_redirects=True
+        )
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(resp.text, "html.parser")
+        for el in soup(["script", "style", "nav", "footer", "header"]):
+            el.decompose()
+        body_text = " ".join(soup.get_text(separator=" ").split())[:2500]
+    except Exception:
+        pass
+
+    ctx_parts = [f"Page URL: {page_url}"]
+    if data.get("current_title"):
+        ctx_parts.append(f"Current title tag: {data['current_title']}")
+    if data.get("current_meta") and field == "title":
+        ctx_parts.append(f"Current meta description: {data['current_meta']}")
+    if data.get("h1"):
+        ctx_parts.append(f"H1: {data['h1']}")
+    if body_text:
+        ctx_parts.append(f"Page text excerpt:\n{body_text}")
+
+    system_prompt = _META_SYSTEM_PROMPT if field == "meta" else _TITLE_SYSTEM_PROMPT
+
+    try:
+        client = _openai_client or OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini",
+            response_format={"type": "json_object"},
+            max_tokens=250,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "\n".join(ctx_parts)}
+            ]
+        )
+    except Exception as exc:
+        return jsonify({"error": "openai_failed", "message": str(exc)}), 200
+
+    result = json.loads(completion.choices[0].message.content)
+    recommended = result.get("recommended", "")
+    n = len(recommended)
+    warnings = []
+    if field == "meta":
+        if n > 160:
+            warnings.append(f"{n} chars — trim to under 160")
+        elif n < 70:
+            warnings.append(f"{n} chars — aim for 140–160")
+    else:
+        if n > 65:
+            warnings.append(f"{n} chars — trim to under 65")
+        elif n < 30:
+            warnings.append(f"{n} chars — aim for 50–60")
+    result["warnings"] = warnings
+    result["char_count"] = n
+    return jsonify(result)

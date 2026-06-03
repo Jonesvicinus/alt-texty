@@ -3,23 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Open SEO Crawler</title>
-  <!-- Favicon: indigo rounded square + white magnifying glass.
-       Inline SVG data-URI keeps it a single round-trip with no static
-       file to ship. Modern browsers support type=image/svg+xml here. -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f46e5'/%3E%3Ccircle cx='13.5' cy='13.5' r='5.5' fill='none' stroke='white' stroke-width='2.4'/%3E%3Cline x1='17.8' y1='17.8' x2='24' y2='24' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='13.5' cy='13.5' r='1.4' fill='white'/%3E%3C/svg%3E">
+  <title>Bowst SEO Crawler</title>
+  <!-- Favicon: Bowst navy rounded square + white magnifying glass. -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23203B56'/%3E%3Ccircle cx='13.5' cy='13.5' r='5.5' fill='none' stroke='%2300A8D6' stroke-width='2.4'/%3E%3Cline x1='17.8' y1='17.8' x2='24' y2='24' stroke='white' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='13.5' cy='13.5' r='1.4' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Montserrat:wght@400;500;600;700&family=Roboto+Slab:wght@700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css?v={{ v }}">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
       <svg viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="7" fill="#4f46e5"/>
-        <circle cx="13.5" cy="13.5" r="5.5" fill="none" stroke="white" stroke-width="2.4"/>
+        <rect width="32" height="32" rx="7" fill="#203B56"/>
+        <circle cx="13.5" cy="13.5" r="5.5" fill="none" stroke="#00A8D6" stroke-width="2.4"/>
         <line x1="17.8" y1="17.8" x2="24" y2="24" stroke="white" stroke-width="2.6" stroke-linecap="round"/>
         <circle cx="13.5" cy="13.5" r="1.4" fill="white"/>
       </svg>
-      <span>Open SEO Crawler</span>
+      <span>Bowst SEO Crawler</span>
     </div>
     <div class="sub">Fast concurrent crawl · CMS-aware · severity-tagged issues</div>
     <!-- Build version + update-check. JS in head queries GitHub API for
@@ -141,13 +142,13 @@
         badge.innerHTML = txt;
         if (color) { badge.style.background = color; badge.style.borderColor = color; }
       };
-      setBadge('Pulling…', '#0ea5e9');
+      setBadge('Pulling…', '#008BB3');
       try {
         const r = await fetch('/update', { method: 'POST' });
         const d = await r.json();
         if (!d.ok) { alert('Update failed:\n\n' + d.error); setBadge('Update now', '#f59e0b'); return; }
         if (!d.changed) { alert('Already up to date.'); setBadge('v ' + local); badge.style.background = ''; badge.style.color = 'var(--text-muted)'; return; }
-        setBadge('Restarting…', '#0ea5e9');
+        setBadge('Restarting…', '#008BB3');
         // Fire-and-forget restart; the response may not flush because
         // the server kills itself, so don't await indefinitely.
         try { await Promise.race([fetch('/restart', { method: 'POST' }), new Promise(r => setTimeout(r, 1500))]); } catch {}
@@ -207,27 +208,27 @@
       </div>
 
       <label class="check"><input type="checkbox" id="crawler-render-js" onchange="_scToggleCompareNoJs(this.checked)" /> Render JS (Playwright, slower)</label>
-      <label class="check" id="crawler-compare-no-js-row" style="display:none;padding-left:22px;border-left:2px solid var(--accent,#6366f1);margin-left:4px;" title="Crawl every page in BOTH modes — JS-rendered (Playwright) AND raw HTML (no JS). The diff shows which pages have content invisible to AI crawlers (ChatGPT, Claude, Perplexity, Google-Extended) which mostly don't execute JS.">
+      <label class="check" id="crawler-compare-no-js-row" style="display:none;padding-left:22px;border-left:2px solid var(--accent,#008BB3);margin-left:4px;" title="Crawl every page in BOTH modes — JS-rendered (Playwright) AND raw HTML (no JS). The diff shows which pages have content invisible to AI crawlers (ChatGPT, Claude, Perplexity, Google-Extended) which mostly don't execute JS.">
         <input type="checkbox" id="crawler-compare-no-js" /> Compare with non-JS HTML <small>(diff per page; flags JS-only content)</small>
       </label>
       <label class="check"><input type="checkbox" id="crawler-ignore-robots" /> Ignore robots.txt</label>
       <label class="check"><input type="checkbox" id="crawler-ignore-noindex" /> Ignore noindex <small>(audit noindex pages as if indexable)</small></label>
       <label class="check"><input type="checkbox" id="crawler-run-sitemap" checked /> Sitemap analysis <small>(after crawl: missing / orphan / sitemap-only / etc.)</small></label>
       <label class="check"><input type="checkbox" id="crawler-run-neardup" checked onchange="_scToggleNearDupCfg(this.checked)" /> Near-duplicate content <small>(content body only; Shingle Jaccard)</small></label>
-      <div id="crawler-neardup-cfg" style="padding:6px 8px 4px 22px;border-left:2px solid var(--accent,#6366f1);margin-left:4px;">
+      <div id="crawler-neardup-cfg" style="padding:6px 8px 4px 22px;border-left:2px solid var(--accent,#008BB3);margin-left:4px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;">
-          <small>Similarity ≥</small>
-          <input type="number" id="crawler-neardup-threshold" min="50" max="100" step="1" value="90" style="width:54px;text-align:right;padding:3px 6px;border:1px solid var(--border,#e2e8f0);border-radius:4px;" />
-          <small>%</small>
+          <small style="color:#fff;">Similarity ≥</small>
+          <input type="number" id="crawler-neardup-threshold" min="50" max="100" step="1" value="90" style="width:54px;text-align:right;padding:3px 6px;border:1px solid var(--border,#D9DCDF);border-radius:4px;" />
+          <small style="color:#fff;">%</small>
           <span style="display:inline-flex;gap:3px;">
-            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=90" style="font-size:10px;padding:2px 7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;cursor:pointer;">90</button>
-            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=85" style="font-size:10px;padding:2px 7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;cursor:pointer;">85</button>
-            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=80" style="font-size:10px;padding:2px 7px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:3px;cursor:pointer;">80</button>
+            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=90" style="font-size:10px;padding:2px 7px;background:#F6F7F8;border:1px solid #D9DCDF;border-radius:3px;cursor:pointer;">90</button>
+            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=85" style="font-size:10px;padding:2px 7px;background:#F6F7F8;border:1px solid #D9DCDF;border-radius:3px;cursor:pointer;">85</button>
+            <button type="button" onclick="document.getElementById('crawler-neardup-threshold').value=80" style="font-size:10px;padding:2px 7px;background:#F6F7F8;border:1px solid #D9DCDF;border-radius:3px;cursor:pointer;">80</button>
           </span>
         </div>
         <details style="margin-top:6px;">
-          <summary style="font-size:10.5px;color:var(--text-muted,#94a3b8);cursor:pointer;">Exclude CSS selectors (advanced)</summary>
-          <textarea id="crawler-neardup-exclude" placeholder=".testimonials, #cta-block, .related-posts" spellcheck="false" style="width:100%;min-height:36px;margin-top:4px;font-family:monospace;font-size:10.5px;padding:5px 7px;border:1px solid var(--border,#e2e8f0);border-radius:4px;resize:vertical;"></textarea>
+          <summary style="font-size:10.5px;color:var(--text-muted,#6E6E6E);cursor:pointer;">Exclude CSS selectors (advanced)</summary>
+          <textarea id="crawler-neardup-exclude" placeholder=".testimonials, #cta-block, .related-posts" spellcheck="false" style="width:100%;min-height:36px;margin-top:4px;font-family:monospace;font-size:10.5px;padding:5px 7px;border:1px solid var(--border,#D9DCDF);border-radius:4px;resize:vertical;"></textarea>
           <small style="display:block;margin-top:3px;">Stops shared CTAs / testimonials / footers from inflating similarity. Canonicalised URLs are skipped automatically.</small>
         </details>
       </div>
@@ -257,10 +258,10 @@
       <div class="actions" style="display:flex;flex-direction:column;gap:6px;align-items:stretch;">
         <button id="crawler-start-btn" onclick="startCrawl()" style="width:100%;">Start crawl</button>
         <button id="crawler-stop-btn" onclick="stopCrawl()" style="display:none;width:100%;">Stop</button>
-        <button id="crawler-load-btn" type="button" onclick="openCrawlLoader()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-weight:500;" title="Open a saved crawl">Load saved</button>
+        <button id="crawler-load-btn" type="button" onclick="openCrawlLoader()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#203B56;border:1px solid #D9DCDF;border-radius:8px;cursor:pointer;font-weight:500;" title="Open a saved crawl">Load saved</button>
         <div id="crawler-post-crawl-actions" style="display:none;flex-direction:column;gap:6px;">
-          <button id="crawler-save-btn" type="button" onclick="saveCurrentCrawl()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-weight:500;" title="Save the current crawl (auto-saved by default — use this to rename)">Save crawl</button>
-          <button id="crawler-compare-btn" type="button" onclick="openCompareCrawlsPicker()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;font-weight:500;" title="Pick a saved crawl to diff against the current crawl">Compare crawls</button>
+          <button id="crawler-save-btn" type="button" onclick="saveCurrentCrawl()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#203B56;border:1px solid #D9DCDF;border-radius:8px;cursor:pointer;font-weight:500;" title="Save the current crawl (auto-saved by default — use this to rename)">Save crawl</button>
+          <button id="crawler-compare-btn" type="button" onclick="openCompareCrawlsPicker()" style="width:100%;padding:8px 12px;font-size:13px;background:transparent;color:#203B56;border:1px solid #D9DCDF;border-radius:8px;cursor:pointer;font-weight:500;" title="Pick a saved crawl to diff against the current crawl">Compare crawls</button>
         </div>
       </div>
 
@@ -365,14 +366,14 @@
     <section class="main">
       <div id="crawler-cms-banner"></div>
       <div id="issue-info-box" style="display:none"></div>
-      <div id="crawler-empty" class="empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:80px 20px;text-align:center;color:#64748b;">
+      <div id="crawler-empty" class="empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:80px 20px;text-align:center;color:#6E6E6E;">
         <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4;">
           <circle cx="12" cy="12" r="10"/>
           <line x1="2" y1="12" x2="22" y2="12"/>
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
         </svg>
-        <div style="font-size:14px;color:#475569;">Enter a URL and click <strong>Start crawl</strong> to begin.</div>
-        <button type="button" onclick="openCrawlLoader()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;color:#0f172a;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">
+        <div style="font-size:14px;color:#6E6E6E;">Enter a URL and click <strong>Start crawl</strong> to begin.</div>
+        <button type="button" onclick="openCrawlLoader()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;background:#ffffff;border:1px solid #D9DCDF;border-radius:8px;color:#203B56;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;" onmouseover="this.style.borderColor='#008BB3';this.style.color='#008BB3'" onmouseout="this.style.borderColor='#D9DCDF';this.style.color='#203B56'">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Load saved crawl
         </button>
@@ -380,14 +381,14 @@
       <div id="crawler-results" style="display:none" class="results-panel">
         <div class="detail-title" id="detail-title" style="display:flex;align-items:center;gap:8px;padding:7px 14px;">
           <span id="detail-title-text">All Pages</span>
-          <button id="crawler-bulk-recrawl-btn" onclick="scBulkRecrawlVisible(this)" title="Re-crawl every URL currently shown" style="margin-left:auto;display:none;align-items:center;gap:5px;padding:4px 10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:11px;font-weight:600;cursor:pointer;line-height:1;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">
+          <button id="crawler-bulk-recrawl-btn" onclick="scBulkRecrawlVisible(this)" title="Re-crawl every URL currently shown" style="margin-left:auto;display:none;align-items:center;gap:5px;padding:4px 10px;background:#eef4f7;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-size:11px;font-weight:600;cursor:pointer;line-height:1;" onmouseover="this.style.borderColor='#008BB3';this.style.color='#008BB3'" onmouseout="this.style.borderColor='#D9DCDF';this.style.color='#203B56'">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg>
             <span id="crawler-bulk-recrawl-label">Re-crawl all</span>
           </button>
           <!-- Sitemap.xml + .xlsx moved to the topbar — they're whole-crawl
                exports, not view-specific, and confused users on issue tabs
                who thought clicking would export the issue rows only. -->
-          <button id="crawler-export-view-btn" onclick="exportCrawlerView()" title="Export the current view as CSV — shape matches whichever tab you're on (e.g. one row per image on All Images, one row per page on the page-level filters)" style="display:none;align-items:center;gap:5px;padding:4px 10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:11px;font-weight:600;cursor:pointer;line-height:1;" onmouseover="this.style.borderColor='#0ea5e9';this.style.color='#0ea5e9'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">
+          <button id="crawler-export-view-btn" onclick="exportCrawlerView()" title="Export the current view as CSV — shape matches whichever tab you're on (e.g. one row per image on All Images, one row per page on the page-level filters)" style="display:none;align-items:center;gap:5px;padding:4px 10px;background:#eef4f7;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-size:11px;font-weight:600;cursor:pointer;line-height:1;" onmouseover="this.style.borderColor='#008BB3';this.style.color='#008BB3'" onmouseout="this.style.borderColor='#D9DCDF';this.style.color='#203B56'">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Export view</span>
           </button>
@@ -395,10 +396,10 @@
                doesn't NPE. The real buttons live in the topbar now. -->
           <button id="crawler-export-sitemap-btn" style="display:none;"></button>
           <button id="crawler-export-xlsx-btn" style="display:none;"></button>
-          <div style="display:flex;align-items:center;gap:3px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;">
-            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="color:#94a3b8;flex-shrink:0;"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
+          <div style="display:flex;align-items:center;gap:3px;background:#eef4f7;border:1px solid #D9DCDF;border-radius:6px;padding:3px 8px;">
+            <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="color:#6E6E6E;flex-shrink:0;"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
             <input type="text" id="sc-url-search" placeholder="Filter by URL…" oninput="scFilterByUrl(this.value)" autocomplete="off" spellcheck="false" style="background:none;border:none;outline:none;font-size:11px;width:150px;padding:2px 0;" />
-            <button id="sc-url-search-clear" onclick="document.getElementById('sc-url-search').value='';scFilterByUrl('')" style="display:none;background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;padding:0 2px;" title="Clear">×</button>
+            <button id="sc-url-search-clear" onclick="document.getElementById('sc-url-search').value='';scFilterByUrl('')" style="display:none;background:none;border:none;cursor:pointer;color:#6E6E6E;font-size:14px;line-height:1;padding:0 2px;" title="Clear">×</button>
           </div>
         </div>
         <div id="crawler-error-banner" style="display:none;padding:10px 14px;border-bottom:1px solid #fca5a5;background:rgba(239,68,68,0.08);color:#991b1b;font-size:12.5px;font-weight:500;align-items:center;gap:10px;line-height:1.4;">
@@ -423,28 +424,28 @@
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
               <div style="flex:1;min-width:0;">
-                <div style="font-weight:700;font-size:15px;color:#0f172a;margin-bottom:4px;">Hit page limit — crawl paused</div>
-                <div id="crawler-limit-banner-msg" style="color:#475569;word-break:break-word;"></div>
+                <div style="font-weight:700;font-size:15px;color:#203B56;margin-bottom:4px;">Hit page limit — crawl paused</div>
+                <div id="crawler-limit-banner-msg" style="color:#6E6E6E;word-break:break-word;"></div>
               </div>
             </div>
             <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
-              <button id="crawler-limit-finalize-btn" type="button" onclick="crawlerFinalizeCrawl()" style="padding:8px 16px;background:transparent;color:#475569;border:1px solid #cbd5e1;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Finalize now</button>
-              <button id="crawler-limit-continue-1k-btn" type="button" onclick="crawlerContinueCrawl(1000)" style="padding:8px 16px;background:transparent;color:#0ea5e9;border:1px solid #0ea5e9;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Continue +1000</button>
-              <button id="crawler-limit-continue-btn" type="button" onclick="crawlerContinueCrawl(500)" style="padding:8px 16px;background:#0ea5e9;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Continue +500</button>
+              <button id="crawler-limit-finalize-btn" type="button" onclick="crawlerFinalizeCrawl()" style="padding:8px 16px;background:transparent;color:#6E6E6E;border:1px solid #D9DCDF;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Finalize now</button>
+              <button id="crawler-limit-continue-1k-btn" type="button" onclick="crawlerContinueCrawl(1000)" style="padding:8px 16px;background:transparent;color:#008BB3;border:1px solid #008BB3;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Continue +1000</button>
+              <button id="crawler-limit-continue-btn" type="button" onclick="crawlerContinueCrawl(500)" style="padding:8px 16px;background:#008BB3;color:#fff;border:none;border-radius:6px;font-size:12.5px;font-weight:600;cursor:pointer;">Continue +500</button>
             </div>
           </div>
         </div>
-        <div id="crawler-queue-panel" style="display:none;border-bottom:1px solid #e2e8f0;background:#f8fafc;">
-          <div onclick="crawlerToggleQueuePanel()" style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#0f172a;user-select:none;">
+        <div id="crawler-queue-panel" style="display:none;border-bottom:1px solid #D9DCDF;background:#F6F7F8;">
+          <div onclick="crawlerToggleQueuePanel()" style="display:flex;align-items:center;gap:8px;padding:8px 14px;cursor:pointer;font-size:12px;font-weight:600;color:#203B56;user-select:none;">
             <svg id="crawler-queue-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="transition:transform 0.15s;"><polyline points="9 18 15 12 9 6"/></svg>
             <span>Queue:</span>
-            <span id="crawler-queue-count" style="color:#6366f1;">0</span>
-            <span style="color:#64748b;font-weight:400;">URL<span id="crawler-queue-plural">s</span> waiting</span>
-            <span style="margin-left:auto;font-size:11px;color:#64748b;font-weight:400;">Click ✕ to exclude a URL from the rest of this crawl</span>
+            <span id="crawler-queue-count" style="color:#008BB3;">0</span>
+            <span style="color:#6E6E6E;font-weight:400;">URL<span id="crawler-queue-plural">s</span> waiting</span>
+            <span style="margin-left:auto;font-size:11px;color:#6E6E6E;font-weight:400;">Click ✕ to exclude a URL from the rest of this crawl</span>
           </div>
           <div id="crawler-queue-body" style="display:none;max-height:240px;overflow:auto;padding:0 14px 10px 14px;font-family:'SF Mono','Menlo',monospace;font-size:11px;line-height:1.5;"></div>
         </div>
-        <div class="cs-expand-hint" style="font-size:11px;color:#64748b;padding:4px 14px 0;font-style:italic;">Tip: drag column edges to resize. Click a column header to sort.</div>
+        <div class="cs-expand-hint" style="font-size:11px;color:#6E6E6E;padding:4px 14px 0;font-style:italic;">Tip: drag column edges to resize. Click a column header to sort.</div>
         <div class="table-wrap">
           <table id="crawler-table">
             <colgroup>
@@ -505,29 +506,29 @@
 
   <!-- Near-duplicate content side-by-side diff modal -->
   <div id="nd-diff-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)closeNdDiff()">
-    <div style="background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;width:min(1400px,98vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border,#e2e8f0);background:var(--surface2,#f8fafc);">
+    <div style="background:var(--surface,#fff);border:1px solid var(--border,#D9DCDF);border-radius:10px;width:min(1400px,98vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border,#D9DCDF);background:var(--surface2,#eef4f7);">
         <div style="font-weight:700;font-size:13px;flex:1;min-width:0;">
-          Near-duplicate diff <span id="nd-diff-similarity" style="margin-left:8px;padding:2px 8px;border-radius:10px;background:var(--accent,#6366f1);color:#fff;font-size:11px;font-weight:600;"></span>
+          Near-duplicate diff <span id="nd-diff-similarity" style="margin-left:8px;padding:2px 8px;border-radius:10px;background:var(--accent,#008BB3);color:#fff;font-size:11px;font-weight:600;"></span>
         </div>
-        <div style="font-size:11px;color:var(--text-muted,#64748b);">
+        <div style="font-size:11px;color:var(--text-muted,#6E6E6E);">
           <span style="background:rgba(34,197,94,0.18);padding:1px 5px;border-radius:3px;color:#15803d;">shared phrase</span>
           <span style="background:rgba(239,68,68,0.10);padding:1px 5px;border-radius:3px;color:#b91c1c;margin-left:6px;">unique to this page</span>
         </div>
-        <button type="button" onclick="closeNdDiff()" style="background:none;border:none;color:var(--text-muted,#64748b);cursor:pointer;font-size:22px;line-height:1;">×</button>
+        <button type="button" onclick="closeNdDiff()" style="background:none;border:none;color:var(--text-muted,#6E6E6E);cursor:pointer;font-size:22px;line-height:1;">×</button>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border,#e2e8f0);flex:1;overflow:hidden;min-height:0;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border,#D9DCDF);flex:1;overflow:hidden;min-height:0;">
         <div style="background:var(--surface,#fff);display:flex;flex-direction:column;overflow:hidden;">
-          <div style="padding:8px 14px;border-bottom:1px solid var(--border,#e2e8f0);font-size:12px;font-weight:600;background:var(--surface2,#f8fafc);display:flex;align-items:center;gap:6px;min-width:0;">
+          <div style="padding:8px 14px;border-bottom:1px solid var(--border,#D9DCDF);font-size:12px;font-weight:600;background:var(--surface2,#eef4f7);display:flex;align-items:center;gap:6px;min-width:0;">
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="nd-diff-url-a"></span>
-            <a id="nd-diff-link-a" target="_blank" style="color:var(--accent,#6366f1);text-decoration:none;font-size:11px;flex-shrink:0;">↗</a>
+            <a id="nd-diff-link-a" target="_blank" style="color:var(--accent,#008BB3);text-decoration:none;font-size:11px;flex-shrink:0;">↗</a>
           </div>
           <div id="nd-diff-body-a" style="flex:1;overflow:auto;padding:14px 18px;font-size:13px;line-height:1.6;"></div>
         </div>
         <div style="background:var(--surface,#fff);display:flex;flex-direction:column;overflow:hidden;">
-          <div style="padding:8px 14px;border-bottom:1px solid var(--border,#e2e8f0);font-size:12px;font-weight:600;background:var(--surface2,#f8fafc);display:flex;align-items:center;gap:6px;min-width:0;">
+          <div style="padding:8px 14px;border-bottom:1px solid var(--border,#D9DCDF);font-size:12px;font-weight:600;background:var(--surface2,#eef4f7);display:flex;align-items:center;gap:6px;min-width:0;">
             <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="nd-diff-url-b"></span>
-            <a id="nd-diff-link-b" target="_blank" style="color:var(--accent,#6366f1);text-decoration:none;font-size:11px;flex-shrink:0;">↗</a>
+            <a id="nd-diff-link-b" target="_blank" style="color:var(--accent,#008BB3);text-decoration:none;font-size:11px;flex-shrink:0;">↗</a>
           </div>
           <div id="nd-diff-body-b" style="flex:1;overflow:auto;padding:14px 18px;font-size:13px;line-height:1.6;"></div>
         </div>
@@ -537,10 +538,10 @@
 
   <!-- Saved-crawls drawer (Load saved / Compare crawls) -->
   <div id="crawl-loader-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:60px 20px 20px;" onclick="if(event.target===this)closeCrawlLoader()">
-    <div style="background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:10px;width:min(1000px,98vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border,#e2e8f0);background:var(--surface2,#f8fafc);">
+    <div style="background:var(--surface,#fff);border:1px solid var(--border,#D9DCDF);border-radius:10px;width:min(1000px,98vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border,#D9DCDF);background:var(--surface2,#eef4f7);">
         <div style="font-weight:700;font-size:13px;flex:1;">Saved crawls</div>
-        <button type="button" onclick="closeCrawlLoader()" style="background:none;border:none;color:var(--text-muted,#64748b);cursor:pointer;font-size:22px;line-height:1;">×</button>
+        <button type="button" onclick="closeCrawlLoader()" style="background:none;border:none;color:var(--text-muted,#6E6E6E);cursor:pointer;font-size:22px;line-height:1;">×</button>
       </div>
       <div id="crawl-loader-body" style="flex:1;overflow:auto;min-height:0;"></div>
     </div>
