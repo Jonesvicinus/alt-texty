@@ -594,3 +594,46 @@ tbody:has(tr[data-url]) { user-select: none; }
   background: var(--surface, #f8fafc);
   color: var(--text-muted, #64748b);
 }
+
+/* ── Focus-visible rings (WCAG 2.1 AA) ───────────────────── */
+:focus-visible { outline: none; }
+
+/* Light-surface interactive elements */
+.btn-secondary:focus-visible,
+.actions button:focus-visible,
+#crawler-load-btn:focus-visible,
+#crawler-save-btn:focus-visible,
+#crawler-compare-btn:focus-visible,
+#crawler-stop-btn:focus-visible,
+.sev-cell:focus-visible,
+.ci-cat:focus-visible,
+.empty-action-btn:focus-visible,
+.detail-action-btn:focus-visible,
+.sitemap-status button.ss-btn:focus-visible,
+.copy-icon:focus-visible,
+.open-icon:focus-visible,
+.sidebar .check input[type="checkbox"]:focus-visible,
+.sidebar input[type=url]:focus-visible,
+.sidebar textarea:focus-visible,
+#crawler-neardup-threshold:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--bw-brand-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--bw-brand-tint-20);
+}
+
+/* Dark-surface elements (topbar, dock header) */
+.topbar-btn:focus-visible,
+.dock-tab:focus-visible,
+.dock-close:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(255,255,255,.25);
+}
+
+/* Suppress focus ring on mouse click but keep for keyboard */
+.sidebar input[type=url]:focus:not(:focus-visible),
+.sidebar textarea:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,139,179,.14);
+}

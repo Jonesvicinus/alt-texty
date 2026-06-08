@@ -118,15 +118,15 @@ function escapeHtml(s) {
 
 function _scCopyIcon(url) {
   const sq = (url||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
-  return `<button type="button" onclick="copyUrl(this,'${sq}')" title="Copy URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#94a3b8);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+  return `<button type="button" onclick="copyUrl(this,'${sq}')" title="Copy URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent)';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
 }
 function _scOpenIcon(url) {
   const sh = (url||'').replace(/"/g,'&quot;');
-  return `${_scCopyIcon(url)}<a href="${sh}" target="_blank" rel="noopener" title="Open in new tab" style="display:inline-block;color:var(--text-muted,#94a3b8);text-decoration:none;padding:3px 5px;vertical-align:middle;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`;
+  return `${_scCopyIcon(url)}<a href="${sh}" target="_blank" rel="noopener" title="Open in new tab" style="display:inline-block;color:var(--text-muted);text-decoration:none;padding:3px 5px;vertical-align:middle;border-radius:4px;" onmouseover="this.style.color='var(--accent)';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`;
 }
 function _scRefetchIcon(url) {
   const sq = (url||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
-  return `<button type="button" onclick="scRecrawlUrl(this,'${sq}')" title="Re-crawl this URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#94a3b8);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg></button>`;
+  return `<button type="button" onclick="scRecrawlUrl(this,'${sq}')" title="Re-crawl this URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent)';this.style.background='var(--surface2)'" onmouseout="this.style.color='var(--text-muted)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg></button>`;
 }
 
 // One-time delegated click on the crawler tbody — clicking anywhere on a
@@ -151,7 +151,7 @@ function renderRow(d) {
   const tr = document.createElement('tr');
   tr.style.cursor = 'pointer';
   tr.dataset.url = d.url;
-  const statusColor = d.status_code >= 400 ? '#ef4444' : d.status_code >= 300 ? '#f59e0b' : '#22c55e';
+  const statusColor = d.status_code >= 400 ? 'var(--bw-error)' : d.status_code >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)';
   // app.py canonicalizes redirect rows so result['url'] is the FINAL URL
   // and result['original_url'] is what we requested. For the URL column
   // we want the user to see the URL they (or an internal link) actually
@@ -171,13 +171,13 @@ function renderRow(d) {
     <td data-col="status" style="color:${statusColor};font-weight:700">${d.status_code}</td>
     ${_scRedirToCell(d)}
     ${_scInlinksCell(d)}
-    <td data-col="title" title="${escapeHtml(d.title||'')}">${d.title ? escapeHtml(d.title) : '<em style="color:#ef4444">missing</em>'}</td>
+    <td data-col="title" title="${escapeHtml(d.title||'')}">${d.title ? escapeHtml(d.title) : '<em style="color:var(--bw-error)">missing</em>'}</td>
     <td data-col="tlen">${d.title_len || 0}</td>
-    <td data-col="meta" title="${escapeHtml(d.meta_description||'')}">${d.meta_description ? escapeHtml(d.meta_description) : '<em style="color:#ef4444">missing</em>'}</td>
+    <td data-col="meta" title="${escapeHtml(d.meta_description||'')}">${d.meta_description ? escapeHtml(d.meta_description) : '<em style="color:var(--bw-error)">missing</em>'}</td>
     ${_scH1Cells(d)}
     <td data-col="words">${d.word_count || 0}</td>
     <td data-col="speed">${d.response_time || 0}s</td>
-    <td data-col="issues">${issues || '<span style="color:#22c55e">OK</span>'}</td>
+    <td data-col="issues">${issues || '<span style="color:var(--bw-success)">OK</span>'}</td>
   `;
   tbody.appendChild(tr);
 }
@@ -473,7 +473,7 @@ if (typeof document !== 'undefined') {
 }
 
 window.copyUrl = function(btn, url) {
-  const done = () => { const t = btn.innerHTML; btn.innerHTML = '✓'; btn.style.color = '#22c55e'; setTimeout(() => { btn.innerHTML = t; btn.style.color = ''; }, 1000); };
+  const done = () => { const t = btn.innerHTML; btn.innerHTML = '✓'; btn.style.color = 'var(--bw-success)'; setTimeout(() => { btn.innerHTML = t; btn.style.color = ''; }, 1000); };
   if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => {});
   else { const ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch {} document.body.removeChild(ta); }
 };
@@ -511,7 +511,7 @@ function renderDock() {
   if (outCount) outCount.textContent = outs.length;
 
   // Details pane
-  const statusColor = page.status_code >= 400 ? '#ef4444' : page.status_code >= 300 ? '#f59e0b' : '#22c55e';
+  const statusColor = page.status_code >= 400 ? 'var(--bw-error)' : page.status_code >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)';
   const sec = page.security || {};
   const og = page.og_tags || {};
   const secBadge = (label, on) => `<span class="badge ${on?'info':'error'}" style="opacity:${on?1:.6}">${on?'✓':'✗'} ${label}</span>`;
@@ -520,7 +520,7 @@ function renderDock() {
       <dt>Status</dt><dd style="color:${statusColor};font-weight:700">${page.status_code || '—'}</dd>
       <dt>Title</dt><dd>${page.title ? escapeHtml(page.title) : '<em>missing</em>'} <span style="color:var(--text-muted)">(${page.title_len || 0} chars)</span></dd>
       <dt>Meta description</dt><dd>${page.meta_description ? escapeHtml(page.meta_description) : '<em>missing</em>'} <span style="color:var(--text-muted)">(${page.meta_len || 0} chars)</span></dd>
-      <dt>H1${(page.h1_list || []).length > 1 ? ` <span style="color:#ef4444">×${page.h1_list.length}</span>` : ''}</dt><dd>${page.h1 ? escapeHtml(page.h1) : '<em>missing</em>'}</dd>
+      <dt>H1${(page.h1_list || []).length > 1 ? ` <span style="color:var(--bw-error)">×${page.h1_list.length}</span>` : ''}</dt><dd>${page.h1 ? escapeHtml(page.h1) : '<em>missing</em>'}</dd>
       <dt>H2 count</dt><dd>${page.h2_count || 0}</dd>
       <dt>Word count</dt><dd>${page.word_count || 0}</dd>
       <dt>Canonical</dt><dd>${page.canonical ? escapeHtml(page.canonical) : '<em>none</em>'} ${page.canonical_kind === 'self' ? '<span class="badge info">self</span>' : page.canonical_kind === 'canonicalised' ? '<span class="badge warn">points elsewhere</span>' : ''}</dd>
@@ -533,7 +533,7 @@ function renderDock() {
           ${page.redirect_chain.map((h, i) => {
             const isLast = i === page.redirect_chain.length - 1;
             const sc = h.status || 0;
-            const scCol = sc >= 400 ? '#ef4444' : sc >= 300 ? '#f59e0b' : '#22c55e';
+            const scCol = sc >= 400 ? 'var(--bw-error)' : sc >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)';
             return `<li style="margin:2px 0;font-size:12px;line-height:1.4;">
               <a href="${escapeHtml(h.url)}" target="_blank" rel="noopener" style="color:var(--accent);word-break:break-all;">${escapeHtml(h.url)}</a>
               <span style="color:${scCol};font-weight:700;margin-left:4px;">${sc}</span>${isLast ? ' <span style="color:var(--text-muted);font-size:10px;">final</span>' : ''}
@@ -593,7 +593,7 @@ function renderCmsBanner(info) {
   if (!info || !info.cms) return;
   const prof = info.profile || {};
   const tipsHtml = (prof.tips || []).length ? `<ul style="margin:4px 0 0 18px;font-size:11px;color:var(--text-muted)">${prof.tips.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : '';
-  const warnsHtml = (prof.schema_warnings || []).length ? `<div style="margin-top:6px;font-size:11px;color:#f59e0b">Schema notes: <ul style="margin:2px 0 0 18px;color:var(--text-muted)">${prof.schema_warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul></div>` : '';
+  const warnsHtml = (prof.schema_warnings || []).length ? `<div style="margin-top:6px;font-size:11px;color:var(--bw-warn-border)">Schema notes: <ul style="margin:2px 0 0 18px;color:var(--text-muted)">${prof.schema_warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul></div>` : '';
   const applyBtn = (prof.exclude_patterns || []).length || Object.keys(prof.suggested_settings || {}).length ? `<button onclick="applyCmsRecs()">Apply recommendations</button>` : '';
   host.innerHTML = `
     <div class="cms-banner">
@@ -875,7 +875,7 @@ function showToast(message, kind) {
     return s;
   })();
   const t = document.createElement('div');
-  const bg = kind === 'error' ? '#dc2626' : kind === 'warn' ? '#f59e0b' : '#0ea5e9';
+  const bg = kind === 'error' ? 'var(--bw-error)' : kind === 'warn' ? 'var(--bw-warn-border)' : 'var(--bw-brand-600)';
   t.style.cssText = `background:${bg};color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;max-width:380px;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;`;
   t.textContent = message;
   stack.appendChild(t);
@@ -954,12 +954,12 @@ function crawlerUpdateQueuePanel(sample, totalCount) {
   for (const url of list) {
     const safe = escapeHtml(url);
     html += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">
-      <button onclick="crawlerExcludeFromQueue('${safe.replace(/'/g, "\\'")}')" title="Exclude this URL from the rest of the crawl" style="flex-shrink:0;background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;line-height:1;padding:0 4px;font-weight:700;">✕</button>
-      <span style="color:#0f172a;word-break:break-all;">${safe}</span>
+      <button onclick="crawlerExcludeFromQueue('${safe.replace(/'/g, "\\'")}')" title="Exclude this URL from the rest of the crawl" style="flex-shrink:0;background:none;border:none;color:var(--bw-error);cursor:pointer;font-size:13px;line-height:1;padding:0 4px;font-weight:700;">✕</button>
+      <span style="color:var(--bw-ink);word-break:break-all;">${safe}</span>
     </div>`;
   }
   if (truncated) {
-    html += `<div style="padding:6px 0 0 0;color:#64748b;font-style:italic;">…and ${count - list.length} more not shown</div>`;
+    html += `<div style="padding:6px 0 0 0;color:var(--text-muted);font-style:italic;">…and ${count - list.length} more not shown</div>`;
   }
   body.innerHTML = html;
 }
@@ -1261,7 +1261,7 @@ function _smSetStatus(state, payload) {
     el.innerHTML = `<div class="ss-row"><div class="ss-spinner"></div><span>Analysing sitemap…</span></div>`;
   } else if (state === 'success') {
     const t = payload || {};
-    el.innerHTML = `<div class="ss-row"><span style="color:#22c55e;">✓</span><span><b>${t.urls_in_sitemap || 0}</b> URLs in sitemap · <b>${t.urls_in_crawl || 0}</b> crawled</span></div>`;
+    el.innerHTML = `<div class="ss-row"><span style="color:var(--bw-success);">✓</span><span><b>${t.urls_in_sitemap || 0}</b> URLs in sitemap · <b>${t.urls_in_crawl || 0}</b> crawled</span></div>`;
   } else if (state === 'prompt') {
     const reason = payload && payload.reason ? payload.reason : "Couldn't find a sitemap.";
     const prefill = (payload && payload.prefill) || '';
@@ -1410,7 +1410,7 @@ function _scRenderJsDiffPanel() {
 
   if (!withDiff.length) {
     panel.innerHTML = `<div style="padding:14px 16px;background:var(--surface2,#f8fafc);border-bottom:1px solid var(--border,#e5e7eb);">
-      <div style="font-size:.85rem;font-weight:600;color:#166534;">✓ All ${total} compared pages render the same with and without JS.</div>
+      <div style="font-size:.85rem;font-weight:600;color:var(--bw-success);">✓ All ${total} compared pages render the same with and without JS.</div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;line-height:1.5;">
         Title, meta, H1, schema, word count, link counts and image counts all match. AI crawlers without JS execution see the same content as Google's full renderer. Server-side rendering is doing its job.
       </div>
@@ -1427,10 +1427,10 @@ function _scRenderJsDiffPanel() {
   });
 
   const sevColor = (s) => ({
-    critical: { bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5' },
-    high:     { bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d' },
-    medium:   { bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd' },
-  }[s] || { bg:'var(--surface,#fff)', fg:'var(--text-muted,#777)', bd:'var(--border,#e5e7eb)' });
+    critical: { bg:'var(--bw-error-bg)', fg:'var(--bw-error)', bd:'var(--bw-error-bg)' },
+    high:     { bg:'var(--bw-warn-bg)',  fg:'var(--bw-warn)',  bd:'var(--bw-warn-border)' },
+    medium:   { bg:'var(--bw-brand-tint-10)', fg:'var(--bw-brand-600)', bd:'var(--bw-brand-tint-20)' },
+  }[s] || { bg:'var(--surface)', fg:'var(--text-muted)', bd:'var(--border)' });
 
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtVal = (v) => {
@@ -1439,8 +1439,8 @@ function _scRenderJsDiffPanel() {
     return esc(v);
   };
   const fieldRow = (label, jsVal, nojsVal, differs) => {
-    const bg = differs ? '#fef3c7' : 'transparent';
-    const bdL = differs ? '3px solid #f59e0b' : '3px solid transparent';
+    const bg = differs ? 'var(--bw-warn-bg)' : 'transparent';
+    const bdL = differs ? '3px solid var(--bw-warn-border)' : '3px solid transparent';
     return `<tr style="background:${bg};">
       <td style="padding:6px 10px;border-left:${bdL};font-weight:600;font-size:.72rem;color:var(--text-muted);width:170px;">${label}${differs?' ⚠':''}</td>
       <td style="padding:6px 10px;font-size:.74rem;border-left:1px solid var(--border,#e5e7eb);">${fmtVal(jsVal)}</td>
@@ -1456,7 +1456,7 @@ function _scRenderJsDiffPanel() {
     return `<div data-jsdiff-sev="${sev}" style="border:1px solid var(--border,#e5e7eb);border-radius:6px;margin:10px 14px;overflow:hidden;">
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2,#f8fafc);border-bottom:1px solid var(--border,#e5e7eb);">
         <span style="display:inline-block;padding:3px 9px;border-radius:999px;border:1px solid ${c.bd};background:${c.bg};color:${c.fg};font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">${sev}</span>
-        <a href="${esc(r.url || '')}" target="_blank" style="color:var(--accent,#6366f1);font-size:.78rem;font-weight:600;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.url || '')}</a>
+        <a href="${esc(r.url || '')}" target="_blank" style="color:var(--accent);font-size:.78rem;font-weight:600;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.url || '')}</a>
         <span style="font-size:.7rem;color:var(--text-muted);">${(r.js_diff.fields || []).length} field${((r.js_diff.fields || []).length)===1?'':'s'} differ</span>
       </div>
       <table style="width:100%;border-collapse:collapse;">
@@ -1487,7 +1487,7 @@ function _scRenderJsDiffPanel() {
     <div style="padding:14px 16px;border-bottom:1px solid var(--border,#e5e7eb);background:var(--surface2,#f8fafc);">
       <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px;">JS vs non-JS HTML diff</div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;line-height:1.55;">
-        Compared <b>${total}</b> pages in both modes. <b style="color:#991b1b;">${withDiff.length}</b> have content invisible to AI crawlers (ChatGPT, Claude, Perplexity, Google-Extended) which mostly don't execute JS. <b style="color:#166534;">${clean}</b> render the same in both modes.
+        Compared <b>${total}</b> pages in both modes. <b style="color:var(--bw-error);">${withDiff.length}</b> have content invisible to AI crawlers (ChatGPT, Claude, Perplexity, Google-Extended) which mostly don't execute JS. <b style="color:var(--bw-success);">${clean}</b> render the same in both modes.
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
         <button type="button" class="jsdiff-chip" data-sev="all" onclick="_scJsDiffSetFilter('all')" style="padding:4px 12px;border-radius:14px;border:1px solid var(--text);background:var(--text);color:var(--surface,#fff);font-size:11.5px;cursor:pointer;font-weight:600;">All ${withDiff.length}</button>
@@ -1566,9 +1566,9 @@ function _scRenderAllImagesPanel() {
 
   // Friendly summary card with built-in legend.
   const _altCellHtml = (cls, alt) => {
-    if (cls === 'missing') return `<span style="color:#ef4444;font-style:italic;">— missing</span>`;
-    if (cls === 'empty')   return `<span style="color:#f59e0b;font-style:italic;">— empty (decorative)</span>`;
-    if (cls === 'empty in link') return `<span style="color:#ef4444;font-style:italic;">— empty alt on a link (no accessible name)</span>`;
+    if (cls === 'missing') return `<span style="color:var(--bw-error);font-style:italic;">— missing</span>`;
+    if (cls === 'empty')   return `<span style="color:var(--bw-warn-border);font-style:italic;">— empty (decorative)</span>`;
+    if (cls === 'empty in link') return `<span style="color:var(--bw-error);font-style:italic;">— empty alt on a link (no accessible name)</span>`;
     return escapeHtml(alt || '');
   };
 
@@ -1578,15 +1578,15 @@ function _scRenderAllImagesPanel() {
       <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;line-height:1.55;">
         <b>${uniq}</b> different image${uniq === 1 ? '' : 's'} used <b>${totalImgs}</b> time${totalImgs === 1 ? '' : 's'} across the site (a logo on every page is one image used many times).
         ${problems
-          ? ` <b style="color:#991b1b;">${problems} need${problems===1?'s':''} fixing</b>`
-          : ` <b style="color:#166534;">No images need fixing.</b>`}
+          ? ` <b style="color:var(--bw-error);">${problems} need${problems===1?'s':''} fixing</b>`
+          : ` <b style="color:var(--bw-success);">No images need fixing.</b>`}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
         <button type="button" class="sc-ai-chip sc-ai-chip-active" data-filter="all" onclick="_scAllImagesFilter('all')" style="padding:4px 12px;border-radius:14px;border:1px solid var(--text);background:var(--text);color:var(--surface);font-size:11.5px;cursor:pointer;font-weight:600;">All <span style="opacity:.75;font-weight:400;">${uniq}</span></button>
-        ${missing ? `<button type="button" class="sc-ai-chip" data-filter="missing" onclick="_scAllImagesFilter('missing')" title="No alt attribute at all — Google + screen readers can't read these. Real problem." style="padding:4px 12px;border-radius:14px;border:1px solid #fca5a5;background:#fee2e2;color:#991b1b;font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Missing alt <span style="font-weight:400;">${missing}</span></button>` : ''}
-        ${emptyLink ? `<button type="button" class="sc-ai-chip" data-filter="empty in link" onclick="_scAllImagesFilter('empty in link')" title="alt=&quot;&quot; on a clickable image — screen reader has nothing to announce. Real problem." style="padding:4px 12px;border-radius:14px;border:1px solid #fca5a5;background:#fee2e2;color:#991b1b;font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Empty alt in link <span style="font-weight:400;">${emptyLink}</span></button>` : ''}
-        ${emptyDeco ? `<button type="button" class="sc-ai-chip" data-filter="empty" onclick="_scAllImagesFilter('empty')" title="alt=&quot;&quot; on a non-link image — CORRECT pattern for purely decorative images. Not a problem." style="padding:4px 12px;border-radius:14px;border:1px solid #fcd34d;background:#fef3c7;color:#92400e;font-size:11.5px;cursor:pointer;font-weight:600;">Decorative (alt="") <span style="font-weight:400;">${emptyDeco}</span></button>` : ''}
-        ${present ? `<button type="button" class="sc-ai-chip" data-filter="present" onclick="_scAllImagesFilter('present')" title="Has meaningful alt text. Already fine — review the wording." style="padding:4px 12px;border-radius:14px;border:1px solid #bbf7d0;background:#dcfce7;color:#166534;font-size:11.5px;cursor:pointer;font-weight:600;">Has alt <span style="font-weight:400;">${present}</span></button>` : ''}
+        ${missing ? `<button type="button" class="sc-ai-chip" data-filter="missing" onclick="_scAllImagesFilter('missing')" title="No alt attribute at all — Google + screen readers can't read these. Real problem." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-error-bg);background:var(--bw-error-bg);color:var(--bw-error);font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Missing alt <span style="font-weight:400;">${missing}</span></button>` : ''}
+        ${emptyLink ? `<button type="button" class="sc-ai-chip" data-filter="empty in link" onclick="_scAllImagesFilter('empty in link')" title="alt=&quot;&quot; on a clickable image — screen reader has nothing to announce. Real problem." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-error-bg);background:var(--bw-error-bg);color:var(--bw-error);font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Empty alt in link <span style="font-weight:400;">${emptyLink}</span></button>` : ''}
+        ${emptyDeco ? `<button type="button" class="sc-ai-chip" data-filter="empty" onclick="_scAllImagesFilter('empty')" title="alt=&quot;&quot; on a non-link image — CORRECT pattern for purely decorative images. Not a problem." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-warn-border);background:var(--bw-warn-bg);color:var(--bw-warn);font-size:11.5px;cursor:pointer;font-weight:600;">Decorative (alt="") <span style="font-weight:400;">${emptyDeco}</span></button>` : ''}
+        ${present ? `<button type="button" class="sc-ai-chip" data-filter="present" onclick="_scAllImagesFilter('present')" title="Has meaningful alt text. Already fine — review the wording." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-success-bg);background:var(--bw-success-bg);color:var(--bw-success);font-size:11.5px;cursor:pointer;font-weight:600;">Has alt <span style="font-weight:400;">${present}</span></button>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
           <button type="button" onclick="_scCopyAllImages()" title="Copy Image src → Alt → Page URLs as TSV (paste into Sheets/Excel)" style="padding:5px 12px;font-size:11.5px;background:var(--surface);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text);">Copy as TSV</button>
         </div>
@@ -1594,9 +1594,9 @@ function _scRenderAllImagesPanel() {
       <details style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">
         <summary style="cursor:pointer;user-select:none;">What's the difference between "missing alt" and "empty alt"?</summary>
         <div style="padding:6px 0 0 14px;line-height:1.55;">
-          <div><b style="color:#991b1b;">Missing alt</b> — the <code>&lt;img&gt;</code> has no <code>alt</code> attribute at all. HTML5 violation. Google can't read the image, screen readers announce the filename. <b>Always fix.</b></div>
-          <div style="margin-top:4px;"><b style="color:#92400e;">Empty alt (decorative)</b> — <code>alt=""</code> on a non-link image. <b>This is the CORRECT pattern</b> for purely decorative images. Tells screen readers to skip. Listed so you can spot ones that should actually have alt text.</div>
-          <div style="margin-top:4px;"><b style="color:#991b1b;">Empty alt in link</b> — <code>alt=""</code> on an <code>&lt;a&gt;</code>/<code>&lt;button&gt;</code> with no other text. The link has no accessible name at all. <b>Always fix.</b></div>
+          <div><b style="color:var(--bw-error);">Missing alt</b> — the <code>&lt;img&gt;</code> has no <code>alt</code> attribute at all. HTML5 violation. Google can't read the image, screen readers announce the filename. <b>Always fix.</b></div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-warn);">Empty alt (decorative)</b> — <code>alt=""</code> on a non-link image. <b>This is the CORRECT pattern</b> for purely decorative images. Tells screen readers to skip. Listed so you can spot ones that should actually have alt text.</div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-error);">Empty alt in link</b> — <code>alt=""</code> on an <code>&lt;a&gt;</code>/<code>&lt;button&gt;</code> with no other text. The link has no accessible name at all. <b>Always fix.</b></div>
         </div>
       </details>
     </div>
@@ -1651,10 +1651,10 @@ function _scAllImagesFilter(want) {
       const f = b.dataset.filter;
       const restore = {
         'all':           { bg:'var(--surface)', fg:'var(--text)', bd:'var(--border)' },
-        'missing':       { bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5' },
-        'empty in link': { bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5' },
-        'empty':         { bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d' },
-        'present':       { bg:'#dcfce7', fg:'#166534', bd:'#bbf7d0' },
+        'missing':       { bg:'var(--bw-error-bg)',   fg:'var(--bw-error)',   bd:'var(--bw-error-bg)' },
+        'empty in link': { bg:'var(--bw-error-bg)',   fg:'var(--bw-error)',   bd:'var(--bw-error-bg)' },
+        'empty':         { bg:'var(--bw-warn-bg)',    fg:'var(--bw-warn)',    bd:'var(--bw-warn-border)' },
+        'present':       { bg:'var(--bw-success-bg)', fg:'var(--bw-success)', bd:'var(--bw-success-bg)' },
       }[f] || { bg:'var(--surface)', fg:'var(--text)', bd:'var(--border)' };
       b.style.background = restore.bg;
       b.style.color = restore.fg;
@@ -1726,25 +1726,25 @@ function _scRenderExternalLinksPanel() {
       <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:8px;line-height:1.55;">
         <b>${allLinks.length}</b> external link${allLinks.length === 1 ? '' : 's'} pointing to <b>${domains.size}</b> domain${domains.size === 1 ? '' : 's'}.
         ${counts.high
-          ? ` <b style="color:#991b1b;">${counts.high} risky</b> <span>(follow + same-window — leaks SEO equity AND loses the visitor)</span>`
-          : ` <b style="color:#166534;">No risky links found.</b>`}
+          ? ` <b style="color:var(--bw-error);">${counts.high} risky</b> <span>(follow + same-window — leaks SEO equity AND loses the visitor)</span>`
+          : ` <b style="color:var(--bw-success);">No risky links found.</b>`}
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">
         <button type="button" class="sc-el-chip sc-el-chip-active" data-filter="all" onclick="_scExternalLinksFilter('all')" style="padding:4px 12px;border-radius:14px;border:1px solid var(--text);background:var(--text);color:var(--surface);font-size:11.5px;cursor:pointer;font-weight:600;">All <span style="opacity:.75;font-weight:400;">${counts.all}</span></button>
-        ${counts.high ? `<button type="button" class="sc-el-chip" data-filter="high" onclick="_scExternalLinksFilter('high')" title="Follow + same-window — leaks link equity AND pushes the visitor off your site." style="padding:4px 12px;border-radius:14px;border:1px solid #fca5a5;background:#fee2e2;color:#991b1b;font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Risky <span style="font-weight:400;">${counts.high}</span></button>` : ''}
-        ${counts.follow ? `<button type="button" class="sc-el-chip" data-filter="follow" onclick="_scExternalLinksFilter('follow')" title="No rel=nofollow. Passes SEO equity to the destination." style="padding:4px 12px;border-radius:14px;border:1px solid #fcd34d;background:#fef3c7;color:#92400e;font-size:11.5px;cursor:pointer;font-weight:600;">Follow <span style="font-weight:400;">${counts.follow}</span></button>` : ''}
-        ${counts.nofollow ? `<button type="button" class="sc-el-chip" data-filter="nofollow" onclick="_scExternalLinksFilter('nofollow')" title="Has rel=nofollow / ugc / sponsored. Doesn't pass equity." style="padding:4px 12px;border-radius:14px;border:1px solid #bbf7d0;background:#dcfce7;color:#166534;font-size:11.5px;cursor:pointer;font-weight:600;">Nofollow <span style="font-weight:400;">${counts.nofollow}</span></button>` : ''}
-        ${counts.samewindow ? `<button type="button" class="sc-el-chip" data-filter="samewindow" onclick="_scExternalLinksFilter('samewindow')" title="No target=_blank. Visitor leaves your site on click." style="padding:4px 12px;border-radius:14px;border:1px solid #fcd34d;background:#fef3c7;color:#92400e;font-size:11.5px;cursor:pointer;font-weight:600;">Same window <span style="font-weight:400;">${counts.samewindow}</span></button>` : ''}
-        ${counts.newtab ? `<button type="button" class="sc-el-chip" data-filter="newtab" onclick="_scExternalLinksFilter('newtab')" title="target=_blank set. Opens in a new tab; your page stays open." style="padding:4px 12px;border-radius:14px;border:1px solid #93c5fd;background:#dbeafe;color:#1e40af;font-size:11.5px;cursor:pointer;font-weight:600;">New tab <span style="font-weight:400;">${counts.newtab}</span></button>` : ''}
+        ${counts.high ? `<button type="button" class="sc-el-chip" data-filter="high" onclick="_scExternalLinksFilter('high')" title="Follow + same-window — leaks link equity AND pushes the visitor off your site." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-error-bg);background:var(--bw-error-bg);color:var(--bw-error);font-size:11.5px;cursor:pointer;font-weight:600;">⚠ Risky <span style="font-weight:400;">${counts.high}</span></button>` : ''}
+        ${counts.follow ? `<button type="button" class="sc-el-chip" data-filter="follow" onclick="_scExternalLinksFilter('follow')" title="No rel=nofollow. Passes SEO equity to the destination." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-warn-border);background:var(--bw-warn-bg);color:var(--bw-warn);font-size:11.5px;cursor:pointer;font-weight:600;">Follow <span style="font-weight:400;">${counts.follow}</span></button>` : ''}
+        ${counts.nofollow ? `<button type="button" class="sc-el-chip" data-filter="nofollow" onclick="_scExternalLinksFilter('nofollow')" title="Has rel=nofollow / ugc / sponsored. Doesn't pass equity." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-success-bg);background:var(--bw-success-bg);color:var(--bw-success);font-size:11.5px;cursor:pointer;font-weight:600;">Nofollow <span style="font-weight:400;">${counts.nofollow}</span></button>` : ''}
+        ${counts.samewindow ? `<button type="button" class="sc-el-chip" data-filter="samewindow" onclick="_scExternalLinksFilter('samewindow')" title="No target=_blank. Visitor leaves your site on click." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-warn-border);background:var(--bw-warn-bg);color:var(--bw-warn);font-size:11.5px;cursor:pointer;font-weight:600;">Same window <span style="font-weight:400;">${counts.samewindow}</span></button>` : ''}
+        ${counts.newtab ? `<button type="button" class="sc-el-chip" data-filter="newtab" onclick="_scExternalLinksFilter('newtab')" title="target=_blank set. Opens in a new tab; your page stays open." style="padding:4px 12px;border-radius:14px;border:1px solid var(--bw-brand-tint-20);background:var(--bw-brand-tint-10);color:var(--bw-brand-600);font-size:11.5px;cursor:pointer;font-weight:600;">New tab <span style="font-weight:400;">${counts.newtab}</span></button>` : ''}
       </div>
       <details style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">
         <summary style="cursor:pointer;user-select:none;">What does each filter mean?</summary>
         <div style="padding:6px 0 0 14px;line-height:1.55;">
-          <div><b style="color:#991b1b;">Risky</b> — link has neither <code>rel=nofollow</code> nor <code>target=_blank</code>. Passes link equity to a third-party domain AND opens in the same tab so the visitor leaves your site.</div>
-          <div style="margin-top:4px;"><b style="color:#92400e;">Follow / dofollow</b> — no <code>rel=nofollow</code>. Passes SEO equity to the destination. Fine for trusted citations; problematic on user-generated content, sponsored posts, or untrusted sources.</div>
-          <div style="margin-top:4px;"><b style="color:#166534;">Nofollow</b> — has <code>rel=nofollow</code>, <code>ugc</code>, or <code>sponsored</code>. Doesn't pass equity. Right for paid links and untrusted content.</div>
-          <div style="margin-top:4px;"><b style="color:#92400e;">Same window</b> — no <code>target=_blank</code>. Visitor leaves your site on click. Usually bad UX on external links.</div>
-          <div style="margin-top:4px;"><b style="color:#1e40af;">New tab</b> — <code>target=_blank</code> set. External link opens in a new tab; your page stays open.</div>
+          <div><b style="color:var(--bw-error);">Risky</b> — link has neither <code>rel=nofollow</code> nor <code>target=_blank</code>. Passes link equity to a third-party domain AND opens in the same tab so the visitor leaves your site.</div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-warn);">Follow / dofollow</b> — no <code>rel=nofollow</code>. Passes SEO equity to the destination. Fine for trusted citations; problematic on user-generated content, sponsored posts, or untrusted sources.</div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-success);">Nofollow</b> — has <code>rel=nofollow</code>, <code>ugc</code>, or <code>sponsored</code>. Doesn't pass equity. Right for paid links and untrusted content.</div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-warn);">Same window</b> — no <code>target=_blank</code>. Visitor leaves your site on click. Usually bad UX on external links.</div>
+          <div style="margin-top:4px;"><b style="color:var(--bw-brand-600);">New tab</b> — <code>target=_blank</code> set. External link opens in a new tab; your page stays open.</div>
         </div>
       </details>
     </div>
@@ -1765,10 +1765,10 @@ function _scRenderExternalLinksPanel() {
       <tbody>
         ${allLinks.map(l => {
           const riskBadge = {
-            high:       '<span style="color:#991b1b;font-weight:600;">⚠ risky</span>',
-            follow:     '<span style="color:#92400e;">follow</span>',
-            samewindow: '<span style="color:#92400e;">same window</span>',
-            ok:         '<span style="color:#166534;">ok</span>',
+            high:       '<span style="color:var(--bw-error);font-weight:600;">⚠ risky</span>',
+            follow:     '<span style="color:var(--bw-warn);">follow</span>',
+            samewindow: '<span style="color:var(--bw-warn);">same window</span>',
+            ok:         '<span style="color:var(--bw-success);">ok</span>',
           }[l.risk] || '';
           return `
             <tr data-risk="${l.risk}" data-follow="${l.nofollow ? 'nofollow' : 'follow'}" data-window="${l.newTab ? 'newtab' : 'samewindow'}" style="border-bottom:1px solid var(--border);">
@@ -1808,11 +1808,11 @@ function _scExternalLinksFilter(want) {
     } else {
       const restore = {
         'all':        { bg:'var(--surface)', fg:'var(--text)', bd:'var(--border)' },
-        'high':       { bg:'#fee2e2', fg:'#991b1b', bd:'#fca5a5' },
-        'follow':     { bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d' },
-        'nofollow':   { bg:'#dcfce7', fg:'#166534', bd:'#bbf7d0' },
-        'samewindow': { bg:'#fef3c7', fg:'#92400e', bd:'#fcd34d' },
-        'newtab':     { bg:'#dbeafe', fg:'#1e40af', bd:'#93c5fd' },
+        'high':       { bg:'var(--bw-error-bg)',        fg:'var(--bw-error)',    bd:'var(--bw-error-bg)' },
+        'follow':     { bg:'var(--bw-warn-bg)',         fg:'var(--bw-warn)',     bd:'var(--bw-warn-border)' },
+        'nofollow':   { bg:'var(--bw-success-bg)',      fg:'var(--bw-success)',  bd:'var(--bw-success-bg)' },
+        'samewindow': { bg:'var(--bw-warn-bg)',         fg:'var(--bw-warn)',     bd:'var(--bw-warn-border)' },
+        'newtab':     { bg:'var(--bw-brand-tint-10)',   fg:'var(--bw-brand-600)',bd:'var(--bw-brand-tint-20)' },
       }[b.dataset.filter] || { bg:'var(--surface)', fg:'var(--text)', bd:'var(--border)' };
       b.style.background = restore.bg;
       b.style.color = restore.fg;
@@ -1903,11 +1903,11 @@ function _scRenderAllValuesPanel(cat) {
       <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;align-items:center;">
         <span><b style="color:var(--text);font-size:1.05rem;font-variant-numeric:tabular-nums;">${total}</b> <span style="color:var(--text-muted);">pages</span></span>
         <span><b style="color:var(--text);font-size:1.05rem;font-variant-numeric:tabular-nums;">${filled}</b> <span style="color:var(--text-muted);">with ${escapeHtml(spec.label.toLowerCase())}</span></span>
-        ${empty ? `<span><b style="color:#ef4444;font-size:1.05rem;font-variant-numeric:tabular-nums;">${empty}</b> <span style="color:var(--text-muted);">missing</span></span>` : ''}
-        ${spec.limit ? `<span><b style="color:${overLimit ? '#ef4444' : 'var(--text)'};font-size:1.05rem;font-variant-numeric:tabular-nums;">${overLimit}</b> <span style="color:var(--text-muted);">over ${spec.limit} chars</span></span>` : ''}
+        ${empty ? `<span><b style="color:var(--bw-error);font-size:1.05rem;font-variant-numeric:tabular-nums;">${empty}</b> <span style="color:var(--text-muted);">missing</span></span>` : ''}
+        ${spec.limit ? `<span><b style="color:${overLimit ? 'var(--bw-error)' : 'var(--text)'};font-size:1.05rem;font-variant-numeric:tabular-nums;">${overLimit}</b> <span style="color:var(--text-muted);">over ${spec.limit} chars</span></span>` : ''}
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="export-btn" type="button" onclick="_scCopyAllValues('${cat}')" title="Copy URL → ${escapeHtml(spec.label)} as TSV (paste into Sheets/Excel)" style="padding:5px 12px;font-size:11.5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-weight:600;cursor:pointer;">Copy as TSV</button>
-          <button class="export-btn" type="button" onclick="_scCopyValuesOnly('${cat}')" title="Copy just the ${escapeHtml(spec.label.toLowerCase())} values, one per line" style="padding:5px 12px;font-size:11.5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-weight:600;cursor:pointer;">Copy values only</button>
+          <button class="export-btn" type="button" onclick="_scCopyAllValues('${cat}')" title="Copy URL → ${escapeHtml(spec.label)} as TSV (paste into Sheets/Excel)" style="padding:5px 12px;font-size:11.5px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--bw-ink);font-weight:600;cursor:pointer;">Copy as TSV</button>
+          <button class="export-btn" type="button" onclick="_scCopyValuesOnly('${cat}')" title="Copy just the ${escapeHtml(spec.label.toLowerCase())} values, one per line" style="padding:5px 12px;font-size:11.5px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--bw-ink);font-weight:600;cursor:pointer;">Copy values only</button>
         </div>
       </div>
     </div>`;
@@ -1936,8 +1936,8 @@ function _scRenderAllValuesPanel(cat) {
           const under = spec.limit && v && spec.minLen && n < spec.minLen;
           const u = r.url || '';
           const safeU = escapeHtml(u);
-          const safeV = v ? escapeHtml(v) : `<span style="color:#ef4444;font-style:italic;">— ${escapeHtml(spec.emptyClass)}</span>`;
-          const cellStyle = over ? 'color:#ef4444;' : (under ? 'color:#f59e0b;' : '');
+          const safeV = v ? escapeHtml(v) : `<span style="color:var(--bw-error);font-style:italic;">— ${escapeHtml(spec.emptyClass)}</span>`;
+          const cellStyle = over ? 'color:var(--bw-error);' : (under ? 'color:var(--bw-warn-border);' : '');
           return `
             <tr data-url="${safeU}" data-value="${escapeHtml((v || '').toLowerCase())}">
               <td title="${safeU}"><a href="${safeU}" target="_blank" style="color:var(--accent);">${safeU}</a></td>
@@ -2145,7 +2145,7 @@ function _scRenderRedirChainsPanel() {
           return `<div style="display:flex;gap:8px;padding:4px 0;font-family:'SF Mono','Menlo',monospace;font-size:.72rem;">
             <span style="color:var(--text-muted);min-width:24px;">${idx + 1}.</span>
             <a href="${safe}" target="_blank" style="color:var(--accent);flex:1;word-break:break-all;">${safe}</a>
-            ${status ? `<span style="color:${status >= 400 ? '#ef4444' : status >= 300 ? '#f59e0b' : '#22c55e'};font-weight:700;">${status}</span>` : ''}
+            ${status ? `<span style="color:${status >= 400 ? 'var(--bw-error)' : status >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)'};font-weight:700;">${status}</span>` : ''}
           </div>`;
         }).join('');
         return `
@@ -2193,10 +2193,10 @@ function _scRenderResponseCodesPanel() {
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
       <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:6px;">Response code distribution</div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:.78rem;align-items:center;">
-        <span><b style="color:#22c55e;font-size:1.05rem;font-variant-numeric:tabular-nums;">${ok}</b> <span style="color:var(--text-muted);">2xx OK</span></span>
-        <span><b style="color:#f59e0b;font-size:1.05rem;font-variant-numeric:tabular-nums;">${redir}</b> <span style="color:var(--text-muted);">3xx redirect</span></span>
-        <span><b style="color:#ef4444;font-size:1.05rem;font-variant-numeric:tabular-nums;">${err4}</b> <span style="color:var(--text-muted);">4xx client error</span></span>
-        <span><b style="color:#ef4444;font-size:1.05rem;font-variant-numeric:tabular-nums;">${err5}</b> <span style="color:var(--text-muted);">5xx server error</span></span>
+        <span><b style="color:var(--bw-success);font-size:1.05rem;font-variant-numeric:tabular-nums;">${ok}</b> <span style="color:var(--text-muted);">2xx OK</span></span>
+        <span><b style="color:var(--bw-warn-border);font-size:1.05rem;font-variant-numeric:tabular-nums;">${redir}</b> <span style="color:var(--text-muted);">3xx redirect</span></span>
+        <span><b style="color:var(--bw-error);font-size:1.05rem;font-variant-numeric:tabular-nums;">${err4}</b> <span style="color:var(--text-muted);">4xx client error</span></span>
+        <span><b style="color:var(--bw-error);font-size:1.05rem;font-variant-numeric:tabular-nums;">${err5}</b> <span style="color:var(--text-muted);">5xx server error</span></span>
         <span style="color:var(--text-muted);margin-left:auto;">${total} URLs total</span>
       </div>
     </div>`;
@@ -2213,7 +2213,7 @@ function _scRenderResponseCodesPanel() {
         </tr></thead>
         <tbody>
           ${buckets.map(([code, urls]) => {
-            const color = code >= 500 ? '#ef4444' : code >= 400 ? '#ef4444' : code >= 300 ? '#f59e0b' : '#22c55e';
+            const color = code >= 500 ? 'var(--bw-error)' : code >= 400 ? 'var(--bw-error)' : code >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)';
             const pct = total ? (urls.length / total * 100).toFixed(1) : '0.0';
             const examples = urls.slice(0, 3).map(u => `<a href="${escapeHtml(u)}" target="_blank" style="color:var(--accent);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u)}</a>`).join('');
             return `<tr>
@@ -2274,7 +2274,7 @@ function _scRenderDeepPagesPanel() {
         ${deep.map(r => {
           const u = escapeHtml(r.url || '');
           return `<tr data-url="${u}">
-            <td style="text-align:center;font-weight:700;color:${r.depth >= 6 ? '#ef4444' : '#f59e0b'};">${r.depth || 0}</td>
+            <td style="text-align:center;font-weight:700;color:${r.depth >= 6 ? 'var(--bw-error)' : 'var(--bw-warn-border)'};">${r.depth || 0}</td>
             <td><a href="${u}" target="_blank" style="color:var(--accent);">${u}</a></td>
             <td style="color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(r.title || '')}</td>
           </tr>`;
@@ -2420,16 +2420,16 @@ function _scRenderSummaryPanel() {
   panel.innerHTML = `
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
       ${stat('Pages crawled', pages.length, 'var(--text)')}
-      ${stat('Errors', pagesAffected.error, '#ef4444')}
-      ${stat('Warnings', pagesAffected.warn, '#f59e0b')}
-      ${stat('Info', pagesAffected.info, '#0ea5e9')}
+      ${stat('Errors', pagesAffected.error, 'var(--bw-error)')}
+      ${stat('Warnings', pagesAffected.warn, 'var(--bw-warn-border)')}
+      ${stat('Info', pagesAffected.info, 'var(--bw-brand-600)')}
     </div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:12.5px;color:var(--text-muted);line-height:1.55;">
       Below: every distinct issue found, grouped by severity. <b style="color:var(--text);">Click any card</b> to see the affected URLs in its dedicated tab.
     </div>
-    ${tier('Errors — must fix', 'error', '#ef4444')}
-    ${tier('Warnings — should fix', 'warn', '#f59e0b')}
-    ${tier('Info — intentional content states', 'info', '#0ea5e9')}
+    ${tier('Errors — must fix', 'error', 'var(--bw-error)')}
+    ${tier('Warnings — should fix', 'warn', 'var(--bw-warn-border)')}
+    ${tier('Info — intentional content states', 'info', 'var(--bw-brand-600)')}
   `;
   main.appendChild(panel);
 }
@@ -2515,7 +2515,7 @@ function _scRenderSeverityPanel(cat) {
     : cat === '__warn'
     ? 'Should-fix issues. Click any card to see the affected URLs.'
     : 'Informational findings (intentional content states). Click any to drill in.';
-  const sevColor = cat === '__err' ? '#ef4444' : cat === '__warn' ? '#f59e0b' : '#0ea5e9';
+  const sevColor = cat === '__err' ? 'var(--bw-error)' : cat === '__warn' ? 'var(--bw-warn-border)' : 'var(--bw-brand-600)';
   const totalPages = (crawlerResults || []).length;
   const pagesAffected = (crawlerResults || []).filter(r => (r.issues || []).some(i => sevOf(i) === wantedSev)).length;
   // Match the Summary view styling: stat cards on top, then a grid of
@@ -2621,13 +2621,13 @@ function _scRenderHreflangPanel() {
       <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:4px;">Hreflang implementation</div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:.78rem;align-items:center;line-height:1.55;">
         <span><b style="color:var(--text);font-size:1.05rem;font-variant-numeric:tabular-nums;">${pages.length}</b> <span style="color:var(--text-muted);">pages with hreflang</span></span>
-        <span><b style="color:${issues.length ? '#ef4444' : '#22c55e'};font-size:1.05rem;font-variant-numeric:tabular-nums;">${issues.length}</b> <span style="color:var(--text-muted);">validation issues</span></span>
+        <span><b style="color:${issues.length ? 'var(--bw-error)' : 'var(--bw-success)'};font-size:1.05rem;font-variant-numeric:tabular-nums;">${issues.length}</b> <span style="color:var(--text-muted);">validation issues</span></span>
       </div>
     </div>`;
 
   const issuesBlock = issues.length ? `
     <div style="padding:14px 16px;border-bottom:1px solid var(--border);">
-      <div style="font-size:.8rem;font-weight:600;color:#991b1b;margin-bottom:8px;">Validation issues</div>
+      <div style="font-size:.8rem;font-weight:600;color:var(--bw-error);margin-bottom:8px;">Validation issues</div>
       <table style="width:100%;border-collapse:collapse;font-size:.74rem;">
         <thead><tr style="background:var(--surface2);">
           <th style="text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);">URL</th>
@@ -2638,7 +2638,7 @@ function _scRenderHreflangPanel() {
           ${issues.slice(0, 200).map(it => {
             const u = escapeHtml(it.url);
             const kindLabel = ({invalid_code:'Invalid code', dup_x_default:'Duplicate x-default', no_return_tag:'Missing return tag'}[it.kind]) || it.kind;
-            return `<tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><a href="${u}" target="_blank" style="color:var(--accent);">${u}</a></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:#991b1b;font-weight:600;">${kindLabel}</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);">${escapeHtml(it.detail)}</td></tr>`;
+            return `<tr><td style="padding:5px 10px;border-bottom:1px solid var(--border);"><a href="${u}" target="_blank" style="color:var(--accent);">${u}</a></td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--bw-error);font-weight:600;">${kindLabel}</td><td style="padding:5px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);">${escapeHtml(it.detail)}</td></tr>`;
           }).join('')}
         </tbody>
       </table>
@@ -2662,7 +2662,7 @@ function _scRenderHreflangPanel() {
                   const href = escapeHtml(e.href || '');
                   const bad = !validCode.test(e.lang || '');
                   return `<tr>
-                    <td style="padding:4px 12px;border-top:1px solid var(--border);font-family:'SF Mono','Menlo',monospace;width:120px;${bad?'color:#ef4444;font-weight:700;':''}">${lang}</td>
+                    <td style="padding:4px 12px;border-top:1px solid var(--border);font-family:'SF Mono','Menlo',monospace;width:120px;${bad?'color:var(--bw-error);font-weight:700;':''}">${lang}</td>
                     <td style="padding:4px 12px;border-top:1px solid var(--border);"><a href="${href}" target="_blank" style="color:var(--accent);">${href}</a></td>
                   </tr>`;
                 }).join('')}
@@ -2712,8 +2712,8 @@ function _renderSchemaByPagePanel() {
   const summary = `
     <div style="padding:14px 0;border-bottom:1px solid var(--border);">
       <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;align-items:center;margin-bottom:10px;">
-        <span><b style="color:#22c55e;font-size:16px;font-variant-numeric:tabular-nums;">${withSchema.length}</b> <span style="color:var(--text-muted);">with schema</span></span>
-        <span><b style="color:#f59e0b;font-size:16px;font-variant-numeric:tabular-nums;">${withoutSchema}</b> <span style="color:var(--text-muted);">without</span></span>
+        <span><b style="color:var(--bw-success);font-size:16px;font-variant-numeric:tabular-nums;">${withSchema.length}</b> <span style="color:var(--text-muted);">with schema</span></span>
+        <span><b style="color:var(--bw-warn-border);font-size:16px;font-variant-numeric:tabular-nums;">${withoutSchema}</b> <span style="color:var(--text-muted);">without</span></span>
         <span style="color:var(--text-muted);">·</span>
         <span><b style="color:var(--text);font-size:16px;font-variant-numeric:tabular-nums;">${Object.keys(typeCounts).length}</b> <span style="color:var(--text-muted);">unique type${Object.keys(typeCounts).length === 1 ? '' : 's'}</span></span>
         <span style="color:var(--text-muted);">·</span>
@@ -2732,9 +2732,9 @@ function _renderSchemaByPagePanel() {
     const path = (r.url || '').replace(/^https?:\/\/[^\/]+/, '') || '/';
     const cells = types.length
       ? types.map(t => `<code style="display:inline-block;font-size:10.5px;background:var(--surface2);color:var(--text);padding:2px 7px;border-radius:4px;margin:1px;border:1px solid var(--border);">${escapeHtml(t)}</code>`).join(' ')
-      : '<span style="color:#f59e0b;font-style:italic;font-size:11px;">no schema</span>';
+      : '<span style="color:var(--bw-warn-border);font-style:italic;font-size:11px;">no schema</span>';
     return `<tr data-types="${escapeHtml(types.join('|'))}" data-url-lower="${escapeHtml((r.url || '').toLowerCase())}">
-      <td title="${escapeHtml(r.url)}"><a href="${r.url}" target="_blank" style="color:#4f46e5;">${escapeHtml(path)}</a></td>
+      <td title="${escapeHtml(r.url)}"><a href="${r.url}" target="_blank" style="color:var(--accent);">${escapeHtml(path)}</a></td>
       <td>${cells}</td>
     </tr>`;
   }).join('');
@@ -2868,7 +2868,7 @@ function _renderNearDupPanel() {
   if (!pairs.length) {
     panel.innerHTML = `<div style="padding:20px;color:var(--text-muted,#64748b);font-size:13px;">
       Tick <b>Near-duplicate content</b> in the sidebar before crawling, or
-      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="background:var(--accent,#6366f1);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;margin:0 4px;">Run analysis now</button>
+      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;margin:0 4px;">Run analysis now</button>
       against the current crawl.
     </div>`;
     main.appendChild(panel);
@@ -2879,16 +2879,16 @@ function _renderNearDupPanel() {
     const safeA = (p.url_a || '').replace(/'/g, "\\'");
     const safeB = (p.url_b || '').replace(/'/g, "\\'");
     const sim = Math.round((p.similarity || 0) * 100);
-    const simColor = sim >= 95 ? '#dc2626' : sim >= 90 ? '#ea580c' : sim >= 85 ? '#d97706' : '#65a30d';
+    const simColor = sim >= 95 ? 'var(--bw-error)' : sim >= 90 ? 'var(--bw-warn-border)' : sim >= 85 ? 'var(--bw-warn-border)' : 'var(--bw-success)';
     const pathA = (p.url_a || '').replace(/^https?:\/\/[^\/]+/, '') || '/';
     const pathB = (p.url_b || '').replace(/^https?:\/\/[^\/]+/, '') || '/';
     const sample = p.shared_phrase_sample || '—';
     return `<tr>
       <td style="font-variant-numeric:tabular-nums;font-weight:700;color:${simColor};">${sim}%</td>
-      <td title="${_scEscapeHtml(p.url_a)}"><a href="${p.url_a}" target="_blank" style="color:var(--accent,#6366f1);">${_scEscapeHtml(pathA)}</a></td>
-      <td title="${_scEscapeHtml(p.url_b)}"><a href="${p.url_b}" target="_blank" style="color:var(--accent,#6366f1);">${_scEscapeHtml(pathB)}</a></td>
+      <td title="${_scEscapeHtml(p.url_a)}"><a href="${p.url_a}" target="_blank" style="color:var(--accent);">${_scEscapeHtml(pathA)}</a></td>
+      <td title="${_scEscapeHtml(p.url_b)}"><a href="${p.url_b}" target="_blank" style="color:var(--accent);">${_scEscapeHtml(pathB)}</a></td>
       <td style="color:var(--text-muted,#64748b);font-family:monospace;font-size:.7rem;" title="${_scEscapeHtml(sample)}">${_scEscapeHtml(sample)}</td>
-      <td style="text-align:right;"><button type="button" onclick="openNdDiff('${safeA}','${safeB}')" style="background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--accent,#6366f1);cursor:pointer;">Compare →</button></td>
+      <td style="text-align:right;"><button type="button" onclick="openNdDiff('${safeA}','${safeB}')" style="background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--accent);cursor:pointer;">Compare →</button></td>
     </tr>`;
   }).join('');
   panel.innerHTML = `
@@ -3000,9 +3000,9 @@ function _renderSitemapPanel(cat) {
   };
   const info = map[cat] || { key: '', hint: '' };
   const items = reports[info.key] || [];
-  const sources = (d.sitemaps_found || []).map(s => `<a href="${s.url}" target="_blank" style="color:#4f46e5;">${s.url}</a> <span style="color:#64748b;">(${s.source})</span>`).join(' · ');
+  const sources = (d.sitemaps_found || []).map(s => `<a href="${s.url}" target="_blank" style="color:var(--accent);">${s.url}</a> <span style="color:#64748b;">(${s.source})</span>`).join(' · ');
   const totals = d.totals || {};
-  const warns = (d.warnings || []).map(w => `<div style="font-size:11px;color:#d97706;padding:4px 0;">⚠ ${w}</div>`).join('');
+  const warns = (d.warnings || []).map(w => `<div style="font-size:11px;color:var(--bw-warn-border);padding:4px 0;">⚠ ${w}</div>`).join('');
   const header = `
     <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px;">
       <div><b>Sitemap(s):</b> ${sources || '(none)'}</div>
@@ -3031,7 +3031,7 @@ function _renderSitemapPanel(cat) {
   const hasMeta = rows.some(r => r.meta);
   const rowHtml = rows.map(r => `
     <tr data-url="${_scEscapeHtml(r.url)}">
-      <td title="${_scEscapeHtml(r.url)}"><a href="${r.url}" target="_blank" style="color:#4f46e5;">${_scEscapeHtml(r.url)}</a></td>
+      <td title="${_scEscapeHtml(r.url)}"><a href="${r.url}" target="_blank" style="color:var(--accent);">${_scEscapeHtml(r.url)}</a></td>
       ${hasMeta ? `<td style="color:#94a3b8;" title="${_scEscapeHtml(r.meta)}">${_scEscapeHtml(r.meta)}</td>` : ''}
     </tr>
   `).join('');
@@ -3843,7 +3843,7 @@ async function crawlerFetchRobots() {
 function applyCrawlRules() {
   const msg = document.getElementById('crawler-apply-rules-msg');
   if (!crawlerCrawlId) {
-    if (msg) { msg.textContent = 'No active crawl.'; msg.style.color = '#dc2626'; }
+    if (msg) { msg.textContent = 'No active crawl.'; msg.style.color = 'var(--bw-error)'; }
     return;
   }
   const includePatterns = (document.getElementById('crawler-include')?.value || '').trim();
@@ -3855,14 +3855,14 @@ function applyCrawlRules() {
     body: JSON.stringify({ crawl_id: crawlerCrawlId, include_patterns: includePatterns, exclude_patterns: excludePatterns })
   }).then(r => r.json().then(j => ({ ok: r.ok, body: j }))).then(({ ok, body }) => {
     if (!ok || !body.ok) {
-      if (msg) { msg.textContent = body.error || 'Failed to apply.'; msg.style.color = '#dc2626'; }
+      if (msg) { msg.textContent = body.error || 'Failed to apply.'; msg.style.color = 'var(--bw-error)'; }
       return;
     }
     const ex = (body.exclude || []).length;
     const inc = (body.include || []).length;
     if (msg) { msg.textContent = `Applied — ${ex} exclude, ${inc} include rule${(ex+inc)===1?'':'s'} active.`; msg.style.color = '#059669'; }
   }).catch(() => {
-    if (msg) { msg.textContent = 'Network error.'; msg.style.color = '#dc2626'; }
+    if (msg) { msg.textContent = 'Network error.'; msg.style.color = 'var(--bw-error)'; }
   });
 }
 
@@ -3963,7 +3963,7 @@ window.scBulkRecrawlVisible = async function(btn) {
     const elapsed = ((performance.now() - startedAt) / 1000).toFixed(1);
     const note = document.createElement('div');
     note.textContent = `Re-crawled ${ok}/${urls.length} in ${elapsed}s${errors ? ` · ${errors} errors` : ''}.`;
-    note.style.cssText = `position:fixed;bottom:80px;right:20px;background:${errors ? '#ef4444' : '#22c55e'};color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;`;
+    note.style.cssText = `position:fixed;bottom:80px;right:20px;background:${errors ? 'var(--bw-error)' : 'var(--bw-success)'};color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;`;
     document.body.appendChild(note);
     setTimeout(() => note.remove(), 3500);
   }
@@ -4016,7 +4016,7 @@ async function scRecrawlUrl(btn, url) {
     if (activeCat) activeCat.click();
     const note = document.createElement('div');
     note.textContent = '✓ Re-crawled: ' + (url.replace(/^https?:\/\/[^/]+/, '') || url);
-    note.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#22c55e;color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;';
+    note.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--bw-success);color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;';
     document.body.appendChild(note);
     setTimeout(() => note.remove(), 3000);
   } catch(e) {
@@ -4092,7 +4092,7 @@ function _scH1Cells(d) {
     }
     return cells.join('');
   }
-  return `<td data-col="h1" title="${escapeHtml(d.h1||'')}">${d.h1 ? escapeHtml(d.h1) : '<em style="color:#ef4444">missing</em>'}</td>`;
+  return `<td data-col="h1" title="${escapeHtml(d.h1||'')}">${d.h1 ? escapeHtml(d.h1) : '<em style="color:var(--bw-error)">missing</em>'}</td>`;
 }
 
 function _scSetColumns(cat) {
@@ -4164,7 +4164,7 @@ function _scSetColumns(cat) {
   function scToast(msg) {
     const n = document.createElement('div');
     n.textContent = msg;
-    n.style.cssText = 'position:fixed;bottom:80px;right:20px;background:#22c55e;color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;';
+    n.style.cssText = 'position:fixed;bottom:80px;right:20px;background:var(--bw-success);color:#fff;padding:8px 14px;border-radius:6px;font-size:.8rem;z-index:9999;pointer-events:none;';
     document.body.appendChild(n);
     setTimeout(() => n.remove(), 2500);
   }
@@ -4304,7 +4304,7 @@ function _scSetColumns(cat) {
 // =============================================================================
 if (typeof window.showToast !== 'function') {
   window.showToast = function(msg, kind) {
-    const colors = { success: '#22c55e', error: '#ef4444', info: '#3b82f6' };
+    const colors = { success: 'var(--bw-success)', error: 'var(--bw-error)', info: 'var(--bw-brand-600)' };
     const n = document.createElement('div');
     n.textContent = msg;
     n.style.cssText = `position:fixed;bottom:80px;right:20px;background:${colors[kind] || colors.info};color:#fff;padding:9px 16px;border-radius:6px;font-size:12.5px;z-index:10001;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,0.18);max-width:420px;`;
@@ -4351,7 +4351,7 @@ function openCrawlLoader(opts) {
     if (compareOnly) {
       headerNote = hasCurrent
         ? `<div style="padding:10px 14px;font-size:11px;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Pick a saved crawl to diff against the current crawl (${crawlerResults.length} pages).</div>`
-        : `<div style="padding:10px 14px;font-size:12px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;margin:10px 14px;">Run or load a crawl first, then come back here to compare.</div>`;
+        : `<div style="padding:10px 14px;font-size:12px;color:var(--bw-warn);background:var(--bw-warn-bg);border:1px solid var(--bw-warn-border);border-radius:6px;margin:10px 14px;">Run or load a crawl first, then come back here to compare.</div>`;
     } else {
       headerNote = hasCurrent
         ? `<div style="padding:10px 14px;font-size:11px;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Showing last 30 days · Current crawl loaded (${crawlerResults.length} pages) — use <strong>Compare</strong> to diff against any saved crawl.</div>`
@@ -4373,11 +4373,11 @@ function openCrawlLoader(opts) {
       const seed = (c.seed || '').replace(/^https?:\/\//,'').replace(/\/$/,'');
       const savedBy = (c.saved_by || 'unknown');
       const compareBtn = hasCurrent
-        ? `<button onclick='compareWithCurrent(${JSON.stringify(c.file)}, ${JSON.stringify(c.name)})' style="padding:6px 12px;font-size:11px;background:${compareOnly ? '#6366f1' : 'transparent'};color:${compareOnly ? '#fff' : '#6366f1'};border:1px solid #6366f1;border-radius:4px;cursor:pointer;font-weight:${compareOnly ? '600' : '400'};">Compare</button>`
+        ? `<button onclick='compareWithCurrent(${JSON.stringify(c.file)}, ${JSON.stringify(c.name)})' style="padding:6px 12px;font-size:11px;background:${compareOnly ? 'var(--accent)' : 'transparent'};color:${compareOnly ? '#fff' : 'var(--accent)'};border:1px solid var(--accent);border-radius:4px;cursor:pointer;font-weight:${compareOnly ? '600' : '400'};">Compare</button>`
         : '';
       const loadBtn = compareOnly
         ? ''
-        : `<button onclick='loadSavedCrawl(${JSON.stringify(c.file)})' style="padding:6px 10px;font-size:11px;background:#6366f1;color:#fff;border:0;border-radius:4px;cursor:pointer;">Load</button>`;
+        : `<button onclick='loadSavedCrawl(${JSON.stringify(c.file)})' style="padding:6px 10px;font-size:11px;background:var(--accent);color:#fff;border:0;border-radius:4px;cursor:pointer;">Load</button>`;
       const delBtn = compareOnly
         ? ''
         : `<button onclick='deleteSavedCrawl(${JSON.stringify(c.file)})' title="Delete" style="padding:6px 8px;font-size:11px;background:transparent;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer;">✕</button>`;
@@ -4389,7 +4389,7 @@ function openCrawlLoader(opts) {
           <div style="min-width:0;">
             <div style="font-weight:600;color:#0f172a;word-break:break-all;">${seed || c.name}
               ${c.source === 'seo-tool' ? '<span title="Saved in seo-tool" style="display:inline-block;margin-left:6px;padding:1px 6px;background:#ede9fe;color:#5b21b6;border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">seo-tool</span>' : ''}
-              ${c.source === 'site-crawler' ? '<span title="Saved in site-crawler" style="display:inline-block;margin-left:6px;padding:1px 6px;background:#dbeafe;color:#1e40af;border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">site-crawler</span>' : ''}
+              ${c.source === 'site-crawler' ? '<span title="Saved in site-crawler" style="display:inline-block;margin-left:6px;padding:1px 6px;background:var(--bw-brand-tint-10);color:var(--bw-brand-600);border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">site-crawler</span>' : ''}
             </div>
             <div style="font-size:10px;color:#64748b;word-break:break-all;">${c.name}</div>
           </div>
@@ -4405,7 +4405,7 @@ function openCrawlLoader(opts) {
     }).join('');
     body.innerHTML = headerNote + search + header + rows;
   }).catch(e => {
-    body.innerHTML = `<div style="padding:20px;color:#ef4444;font-size:12px;">Error: ${e.message}</div>`;
+    body.innerHTML = `<div style="padding:20px;color:var(--bw-error);font-size:12px;">Error: ${e.message}</div>`;
   });
 }
 
@@ -4550,20 +4550,20 @@ function _renderCompareModal(d, savedName) {
 
   const delta = (a, b, opts = {}) => {
     const dlt = b - a;
-    if (dlt === 0) return `<span style="color:#94a3b8;">·</span>`;
+    if (dlt === 0) return `<span style="color:var(--text-muted);">·</span>`;
     const lessIsBetter = opts.lessIsBetter !== false;
     const good = lessIsBetter ? dlt < 0 : dlt > 0;
     const arrow = dlt > 0 ? '▲' : '▼';
     const sign = dlt > 0 ? '+' : '';
-    const color = good ? '#10b981' : '#ef4444';
+    const color = good ? 'var(--bw-success)' : 'var(--bw-error)';
     return `<span style="color:${color};font-weight:600;">${arrow} ${sign}${dlt}</span>`;
   };
   const deltaTime = (a, b) => {
     const dlt = +(b - a).toFixed(2);
-    if (dlt === 0) return `<span style="color:#94a3b8;">·</span>`;
+    if (dlt === 0) return `<span style="color:var(--text-muted);">·</span>`;
     const good = dlt < 0;
     const sign = dlt > 0 ? '+' : '';
-    const color = good ? '#10b981' : '#ef4444';
+    const color = good ? 'var(--bw-success)' : 'var(--bw-error)';
     return `<span style="color:${color};font-weight:600;">${sign}${dlt}s</span>`;
   };
 
@@ -4602,7 +4602,7 @@ function _renderCompareModal(d, savedName) {
       </div>
     </div>`;
 
-  const codeColor = { '2xx': '#22c55e', '3xx': '#f59e0b', '4xx': '#ef4444', '5xx': '#dc2626', 'other': '#888' };
+  const codeColor = { '2xx': 'var(--bw-success)', '3xx': 'var(--bw-warn-border)', '4xx': 'var(--bw-error)', '5xx': 'var(--bw-error)', 'other': 'var(--text-muted)' };
   const codeRow = (k) => `
     <tr style="border-bottom:1px solid #e2e8f0;">
       <td style="padding:7px 14px;font-weight:600;color:${codeColor[k]};">${k}</td>
@@ -4627,7 +4627,7 @@ function _renderCompareModal(d, savedName) {
   const issues = d.issues || [];
   const issueRow = (it, idx) => {
     const sev = (typeof sevOf === 'function' ? sevOf(it.issue) : 'warn');
-    const sevColor = sev === 'error' ? '#ef4444' : sev === 'warn' ? '#f59e0b' : '#3b82f6';
+    const sevColor = sev === 'error' ? 'var(--bw-error)' : sev === 'warn' ? 'var(--bw-warn-border)' : 'var(--bw-brand-600)';
     const resolved = it.only_a_total != null ? it.only_a_total : (it.only_a || []).length;
     const introduced = it.only_b_total != null ? it.only_b_total : (it.only_b || []).length;
     const still = it.both_total != null ? it.both_total : (it.both || []).length;
@@ -4680,13 +4680,13 @@ function _renderCompareModal(d, savedName) {
 
   const s = d.summary || {};
   const urlRow = (x, sign, signColor) => {
-    const sc = x.status_code ? `<span style="font-size:10.5px;color:${x.status_code >= 400 ? '#ef4444' : x.status_code >= 300 ? '#f59e0b' : '#22c55e'};font-weight:600;font-variant-numeric:tabular-nums;margin-right:8px;">${x.status_code}</span>` : '';
+    const sc = x.status_code ? `<span style="font-size:10.5px;color:${x.status_code >= 400 ? 'var(--bw-error)' : x.status_code >= 300 ? 'var(--bw-warn-border)' : 'var(--bw-success)'};font-weight:600;font-variant-numeric:tabular-nums;margin-right:8px;">${x.status_code}</span>` : '';
     const ti = x.title ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${escHtml(x.title.slice(0, 100))}</div>` : '';
     return `<div style="padding:6px 14px;border-bottom:1px solid #e2e8f0;">
       <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-family:'SF Mono','Menlo',monospace;">
         <span style="color:${signColor};font-weight:700;">${sign}</span>
         ${sc}
-        <a href="${x.url}" target="_blank" style="color:#6366f1;text-decoration:none;word-break:break-all;flex:1;min-width:0;">${escHtml(x.url)}</a>
+        <a href="${x.url}" target="_blank" style="color:var(--accent);text-decoration:none;word-break:break-all;flex:1;min-width:0;">${escHtml(x.url)}</a>
       </div>
       ${ti}
     </div>`;
@@ -4708,14 +4708,14 @@ function _renderCompareModal(d, savedName) {
       return `<div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:4px;">
         <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${FIELD_LABELS[f] || f}</div>
         <div style="font-size:12px;">
-          <div style="color:#ef4444;">− ${escHtml(oldv)}</div>
-          <div style="color:#10b981;">+ ${escHtml(newv)}</div>
+          <div style="color:var(--bw-error);">− ${escHtml(oldv)}</div>
+          <div style="color:var(--bw-success);">+ ${escHtml(newv)}</div>
         </div>
       </div>`;
     }).join('');
     return `<div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;">
       <div style="font-size:12px;font-family:'SF Mono','Menlo',monospace;word-break:break-all;margin-bottom:4px;">
-        <a href="${c.url}" target="_blank" style="color:#6366f1;text-decoration:none;">${escHtml(c.url)}</a>
+        <a href="${c.url}" target="_blank" style="color:var(--accent);text-decoration:none;">${escHtml(c.url)}</a>
       </div>
       ${fields}
     </div>`;
@@ -4731,17 +4731,17 @@ function _renderCompareModal(d, savedName) {
     { id: 'codes', label: 'Status Codes', count: null },
     { id: 'issues', label: 'Issues', count: (d.issues || []).length },
     { id: 'structure', label: 'Site Structure', count: (d.structure || []).length },
-    { id: 'added', label: 'Added', count: s.added || 0, color: '#10b981' },
-    { id: 'removed', label: 'Removed', count: s.removed || 0, color: '#ef4444' },
-    { id: 'changed', label: 'Changed', count: s.changed || 0, color: '#f59e0b' },
+    { id: 'added', label: 'Added', count: s.added || 0, color: 'var(--bw-success)' },
+    { id: 'removed', label: 'Removed', count: s.removed || 0, color: 'var(--bw-error)' },
+    { id: 'changed', label: 'Changed', count: s.changed || 0, color: 'var(--bw-warn-border)' },
   ];
   const active = window._compareActiveTab || 'overview';
   document.getElementById('crawl-compare-tabs').innerHTML = tabs.map(t => {
     const isActive = t.id === active;
     const badge = (t.count != null && t.count > 0)
-      ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:${t.color || (isActive ? '#6366f1' : '#f1f5f9')};color:${t.color || isActive ? '#fff' : '#64748b'};font-size:10.5px;font-variant-numeric:tabular-nums;font-weight:600;">${t.count}</span>`
-      : (t.count === 0 ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:#f1f5f9;color:#64748b;font-size:10.5px;font-variant-numeric:tabular-nums;">0</span>` : '');
-    return `<button type="button" onclick="_compareSwitchTab('${t.id}')" style="background:none;border:0;border-bottom:2px solid ${isActive ? '#6366f1' : 'transparent'};padding:11px 16px;cursor:pointer;font-size:12.5px;font-weight:${isActive ? 700 : 500};color:${isActive ? '#0f172a' : '#64748b'};display:inline-flex;align-items:center;gap:0;flex-shrink:0;">${t.label}${badge}</button>`;
+      ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:${t.color || (isActive ? 'var(--accent)' : 'var(--surface2)')};color:${t.color ? '#fff' : (isActive ? '#fff' : 'var(--text-muted)')};font-size:10.5px;font-variant-numeric:tabular-nums;font-weight:600;">${t.count}</span>`
+      : (t.count === 0 ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:var(--surface2);color:var(--text-muted);font-size:10.5px;font-variant-numeric:tabular-nums;">0</span>` : '');
+    return `<button type="button" onclick="_compareSwitchTab('${t.id}')" style="background:none;border:0;border-bottom:2px solid ${isActive ? 'var(--accent)' : 'transparent'};padding:11px 16px;cursor:pointer;font-size:12.5px;font-weight:${isActive ? 700 : 500};color:${isActive ? 'var(--bw-ink)' : 'var(--text-muted)'};display:inline-flex;align-items:center;gap:0;flex-shrink:0;">${t.label}${badge}</button>`;
   }).join('');
 
   let bodyHtml = '';
@@ -4767,18 +4767,18 @@ function _renderCompareModal(d, savedName) {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
           <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
             <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs added</div>
-            <div style="font-size:24px;font-weight:700;color:#10b981;font-variant-numeric:tabular-nums;">${s.added || 0}</div>
-            <button onclick="_compareSwitchTab('added')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
+            <div style="font-size:24px;font-weight:700;color:var(--bw-success);font-variant-numeric:tabular-nums;">${s.added || 0}</div>
+            <button onclick="_compareSwitchTab('added')" style="margin-top:6px;background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
-          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs removed</div>
-            <div style="font-size:24px;font-weight:700;color:#ef4444;font-variant-numeric:tabular-nums;">${s.removed || 0}</div>
-            <button onclick="_compareSwitchTab('removed')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface);">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs removed</div>
+            <div style="font-size:24px;font-weight:700;color:var(--bw-error);font-variant-numeric:tabular-nums;">${s.removed || 0}</div>
+            <button onclick="_compareSwitchTab('removed')" style="margin-top:6px;background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
-          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs changed</div>
-            <div style="font-size:24px;font-weight:700;color:#f59e0b;font-variant-numeric:tabular-nums;">${s.changed || 0}</div>
-            <button onclick="_compareSwitchTab('changed')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
+          <div style="border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface);">
+            <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs changed</div>
+            <div style="font-size:24px;font-weight:700;color:var(--bw-warn-border);font-variant-numeric:tabular-nums;">${s.changed || 0}</div>
+            <button onclick="_compareSwitchTab('changed')" style="margin-top:6px;background:none;border:0;color:var(--accent);font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
         </div>
         <div style="margin-top:10px;font-size:11px;color:#64748b;">Unchanged: ${s.unchanged || 0} URLs (same on both crawls)</div>
@@ -4790,9 +4790,9 @@ function _renderCompareModal(d, savedName) {
   } else if (active === 'structure') {
     bodyHtml = structureHtml || `<div style="padding:18px;color:#64748b;font-size:12px;">No structural changes.</div>`;
   } else if (active === 'added') {
-    bodyHtml = `<div style="padding:0;">${sliceList(d.added, 1000, (x) => urlRow(x, '+', '#10b981'))}</div>`;
+    bodyHtml = `<div style="padding:0;">${sliceList(d.added, 1000, (x) => urlRow(x, '+', 'var(--bw-success)'))}</div>`;
   } else if (active === 'removed') {
-    bodyHtml = `<div style="padding:0;">${sliceList(d.removed, 1000, (x) => urlRow(x, '−', '#ef4444'))}</div>`;
+    bodyHtml = `<div style="padding:0;">${sliceList(d.removed, 1000, (x) => urlRow(x, '−', 'var(--bw-error)'))}</div>`;
   } else if (active === 'changed') {
     bodyHtml = `<div style="padding:0;">${sliceList(d.changed, 1000, changedRow)}</div>`;
   }
@@ -4835,7 +4835,7 @@ window._compareToggleIssueDrill = function(idx) {
       : '';
     return safeUrls.map(u => `
       <div style="padding:5px 12px;font-size:11.5px;font-family:'SF Mono','Menlo',monospace;border-bottom:1px solid #e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-        <span style="color:${color};font-weight:700;margin-right:6px;">●</span><a href="${u}" target="_blank" rel="noopener" style="color:#6366f1;text-decoration:none;">${escHtml(u)}</a>
+        <span style="color:${color};font-weight:700;margin-right:6px;">●</span><a href="${u}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;">${escHtml(u)}</a>
       </div>`).join('') + more;
   };
   const onlyA = it.only_a || [];
@@ -4850,16 +4850,16 @@ window._compareToggleIssueDrill = function(idx) {
     <td colspan="4" style="padding:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e2e8f0;">
         <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Resolved <span style="color:#64748b;font-weight:500;">(${oat})</span></div>
-          <div style="max-height:340px;overflow:auto;">${renderList(onlyA, oat, 'No URLs resolved', '#10b981')}</div>
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:var(--bw-success);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2);">Resolved <span style="color:var(--text-muted);font-weight:500;">(${oat})</span></div>
+          <div style="max-height:340px;overflow:auto;">${renderList(onlyA, oat, 'No URLs resolved', 'var(--bw-success)')}</div>
         </div>
-        <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Newly broken <span style="color:#64748b;font-weight:500;">(${obt})</span></div>
-          <div style="max-height:340px;overflow:auto;">${renderList(onlyB, obt, 'No new URLs broken', '#ef4444')}</div>
+        <div style="background:var(--surface);">
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:var(--bw-error);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2);">Newly broken <span style="color:var(--text-muted);font-weight:500;">(${obt})</span></div>
+          <div style="max-height:340px;overflow:auto;">${renderList(onlyB, obt, 'No new URLs broken', 'var(--bw-error)')}</div>
         </div>
-        <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Still failing <span style="color:#64748b;font-weight:500;">(${bt})</span></div>
-          <div style="max-height:340px;overflow:auto;">${renderList(both, bt, 'None — issue cleared', '#f59e0b')}</div>
+        <div style="background:var(--surface);">
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:var(--bw-warn-border);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);background:var(--surface2);">Still failing <span style="color:var(--text-muted);font-weight:500;">(${bt})</span></div>
+          <div style="max-height:340px;overflow:auto;">${renderList(both, bt, 'None — issue cleared', 'var(--bw-warn-border)')}</div>
         </div>
       </div>
     </td>`;
@@ -5064,10 +5064,10 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
   const depth = Math.max(2, subDepth(focus));
   const rw = Math.min(72, (Math.min(W, H) / 2 - innerRadius - 10) / depth);
 
-  const palette = ['#0ea5e9', '#22c55e', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#14b8a6', '#f43f5e'];
+  const palette = ['var(--bw-brand)', '#22c55e', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#14b8a6', '#f43f5e'];
   const sliceColor = (node, d) => {
-    if (node.errors > 0) return '#ef4444';
-    if (node.leaf && node.leaf.status_code >= 300 && node.leaf.status_code < 400) return '#f59e0b';
+    if (node.errors > 0) return 'var(--bw-error)';
+    if (node.leaf && node.leaf.status_code >= 300 && node.leaf.status_code < 400) return 'var(--bw-warn-border)';
     return palette[d % palette.length];
   };
 
@@ -5173,11 +5173,11 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
   const canGoUp = focus !== rootTree;
   const center = `
     <g style="cursor:${canGoUp ? 'pointer' : 'default'};" ${canGoUp ? `onclick="_svZoomOut()"` : ''}>
-      <circle cx="${cx}" cy="${cy}" r="${innerRadius - 4}" fill="#fff" stroke="${canGoUp ? '#6366f1' : '#e2e8f0'}" stroke-width="${canGoUp ? '2' : '1.5'}"/>
+      <circle cx="${cx}" cy="${cy}" r="${innerRadius - 4}" fill="#fff" stroke="${canGoUp ? 'var(--bw-brand-600)' : 'var(--border)'}" stroke-width="${canGoUp ? '2' : '1.5'}"/>
       <text x="${cx}" y="${cy - 22}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:10.5px;fill:#64748b;text-transform:uppercase;letter-spacing:.05em;pointer-events:none;">${canGoUp ? '← back' : 'site'}</text>
       <text x="${cx}" y="${cy - 4}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:${focusLabel.length > 14 ? 13 : 17}px;font-weight:700;fill:#0f172a;pointer-events:none;">${_scEsc(focusLabel.length > 18 ? focusLabel.slice(0, 17) + '…' : focusLabel)}</text>
-      <text x="${cx}" y="${cy + 18}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:13px;font-weight:600;fill:#6366f1;pointer-events:none;">${focus.count} URL${focus.count===1?'':'s'}</text>
-      ${focus.errors ? `<text x="${cx}" y="${cy + 36}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:10.5px;font-weight:600;fill:#ef4444;pointer-events:none;">${focus.errors} broken</text>` : ''}
+      <text x="${cx}" y="${cy + 18}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:13px;font-weight:600;fill:var(--bw-brand-600);pointer-events:none;">${focus.count} URL${focus.count===1?'':'s'}</text>
+      ${focus.errors ? `<text x="${cx}" y="${cy + 36}" text-anchor="middle" style="font-family:ui-sans-serif,system-ui;font-size:10.5px;font-weight:600;fill:var(--bw-error);pointer-events:none;">${focus.errors} broken</text>` : ''}
     </g>`;
 
   const buildCrumbs = () => {
@@ -5190,7 +5190,7 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
     return items.map((it, i) => {
       const isLast = i === items.length - 1;
       return `<button type="button" onclick="_svZoomTo('${it.path.replace(/'/g,"\\'")}')"
-        style="background:${isLast?'#6366f1':'#fff'};color:${isLast?'#fff':'#0f172a'};border:1px solid ${isLast?'#6366f1':'#e2e8f0'};border-radius:5px;padding:3px 9px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;">${_scEsc(it.name)}</button>`;
+        style="background:${isLast?'var(--accent)':'var(--surface)'};color:${isLast?'#fff':'var(--bw-ink)'};border:1px solid ${isLast?'var(--accent)':'var(--border)'};border-radius:5px;padding:3px 9px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;">${_scEsc(it.name)}</button>`;
     }).join('<span style="color:#94a3b8;font-size:11px;align-self:center;">›</span>');
   };
 
@@ -5230,9 +5230,9 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
               click slice to drill · centre to go back · drag to pan · scroll to zoom
             </div>
             <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:5px;z-index:2;">
-              <button type="button" onclick="_svZoom(1.25)" title="Zoom in" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">+</button>
-              <button type="button" onclick="_svZoom(0.8)" title="Zoom out" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">−</button>
-              <button type="button" onclick="_svResetView()" title="Reset zoom & position" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">⟲</button>
+              <button type="button" onclick="_svZoom(1.25)" title="Zoom in" style="width:30px;height:30px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--bw-ink);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--bw-ink)'">+</button>
+              <button type="button" onclick="_svZoom(0.8)" title="Zoom out" style="width:30px;height:30px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--bw-ink);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--bw-ink)'">−</button>
+              <button type="button" onclick="_svResetView()" title="Reset zoom & position" style="width:30px;height:30px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--bw-ink);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--bw-ink)'">⟲</button>
             </div>
             <svg id="sv-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"
                  data-vb-w="${W}" data-vb-h="${H}"
@@ -5255,7 +5255,7 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
         <div style="min-width:0;overflow:hidden;">
           <div id="sv-readout" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;min-height:120px;overflow:hidden;">
             <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px;">hover a slice</div>
-            <div id="sv-readout-path" style="font-family:'SF Mono','Menlo',monospace;font-size:12px;color:#6366f1;word-break:break-all;overflow-wrap:anywhere;margin-bottom:8px;max-width:100%;">—</div>
+            <div id="sv-readout-path" style="font-family:'SF Mono','Menlo',monospace;font-size:12px;color:var(--accent);word-break:break-all;overflow-wrap:anywhere;margin-bottom:8px;max-width:100%;">—</div>
             <div id="sv-readout-stats" style="font-size:11.5px;color:#64748b;line-height:1.55;">Click a slice to drill in. Hold <kbd style="font-family:inherit;background:#fff;border:1px solid #e2e8f0;border-radius:3px;padding:1px 5px;font-size:10.5px;">Shift</kbd> while clicking to filter the table to that subtree instead.</div>
           </div>
           <div style="font-size:11px;color:#64748b;line-height:1.55;">
@@ -5285,15 +5285,15 @@ function _svRenderList(pages, filter) {
     const issues = (p.issues ? p.issues.length : (p.i || 0));
     const title = p.title || p.t || '';
     const path = url.replace(/^https?:\/\/[^\/]+/, '') || '/';
-    const sc = status >= 500 ? '#dc2626' : status >= 400 ? '#ef4444' : status >= 300 ? '#f59e0b' : status >= 200 ? '#22c55e' : '#94a3b8';
+    const sc = status >= 500 ? 'var(--bw-error)' : status >= 400 ? 'var(--bw-error)' : status >= 300 ? 'var(--bw-warn-border)' : status >= 200 ? 'var(--bw-success)' : 'var(--text-muted)';
     const safeUrl = (url || '').replace(/'/g, "\\'");
     return `<div onclick="_svListClick(event, '${safeUrl}')"
       style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid #e2e8f0;cursor:pointer;line-height:1.4;"
       onmouseover="this.style.background='#fff'" onmouseout="this.style.background=''"
       title="${_scEsc(title || url)}">
       <span style="color:${sc};font-weight:700;width:38px;flex-shrink:0;text-align:right;font-variant-numeric:tabular-nums;">${status || '—'}</span>
-      <span style="flex:1;min-width:0;color:#6366f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_scEsc(path)}</span>
-      ${issues ? `<span style="color:#f59e0b;font-size:10.5px;font-weight:600;flex-shrink:0;">${issues} issue${issues===1?'':'s'}</span>` : ''}
+      <span style="flex:1;min-width:0;color:var(--accent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_scEsc(path)}</span>
+      ${issues ? `<span style="color:var(--bw-warn-border);font-size:10.5px;font-weight:600;flex-shrink:0;">${issues} issue${issues===1?'':'s'}</span>` : ''}
     </div>`;
   }).join('');
 }
@@ -5428,8 +5428,8 @@ window._svSliceHover = function(pathStr, count, errors, issues) {
   p.textContent = pathStr || '/';
   const parts = [];
   parts.push(`<strong style="color:#0f172a;">${count}</strong> URL${count===1?'':'s'} under this path`);
-  if (errors > 0) parts.push(`<span style="color:#ef4444;font-weight:600;">${errors} broken</span>`);
-  if (issues > 0) parts.push(`<span style="color:#f59e0b;font-weight:600;">${issues} issue${issues===1?'':'s'} total</span>`);
+  if (errors > 0) parts.push(`<span style="color:var(--bw-error);font-weight:600;">${errors} broken</span>`);
+  if (issues > 0) parts.push(`<span style="color:var(--bw-warn-border);font-weight:600;">${issues} issue${issues===1?'':'s'} total</span>`);
   s.innerHTML = parts.join(' · ');
 };
 
@@ -5495,9 +5495,9 @@ function _scRenderSiteStructureTree(root) {
     let statusText = '';
     if (leaf) {
       const sc = leaf.status_code;
-      if (sc >= 400) { statusColor = '#ef4444'; statusText = `HTTP ${sc}`; }
-      else if (sc >= 300) { statusColor = '#f59e0b'; statusText = `redirect ${sc}`; }
-      else if (sc >= 200) { statusColor = '#22c55e'; statusText = `${sc}`; }
+      if (sc >= 400) { statusColor = 'var(--bw-error)'; statusText = `HTTP ${sc}`; }
+      else if (sc >= 300) { statusColor = 'var(--bw-warn-border)'; statusText = `redirect ${sc}`; }
+      else if (sc >= 200) { statusColor = 'var(--bw-success)'; statusText = `${sc}`; }
     } else {
       statusText = '(no page crawled at this path)';
     }
@@ -5514,9 +5514,9 @@ function _scRenderSiteStructureTree(root) {
            onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''"
            ${hasKids ? `onclick="document.getElementById('${rowId}').style.display=document.getElementById('${rowId}').style.display==='none'?'':'none';this.querySelector('.sv-caret').textContent=this.querySelector('.sv-caret').textContent==='▸'?'▾':'▸'"` : ''}>
         <span class="sv-caret" style="width:12px;font-size:10px;color:#94a3b8;text-align:center;">${hasKids ? (initiallyOpen ? '▾' : '▸') : '·'}</span>
-        <span style="font-family:'SF Mono','Menlo',monospace;font-size:12.5px;color:${leaf?'#6366f1':'#64748b'};font-weight:${leaf?600:400};">${label || '/'}</span>
+        <span style="font-family:'SF Mono','Menlo',monospace;font-size:12.5px;color:${leaf?'var(--accent)':'var(--text-muted)'};font-weight:${leaf?600:400};">${label || '/'}</span>
         ${leaf ? `<span style="font-family:'SF Mono','Menlo',monospace;font-size:10.5px;color:${statusColor};">${statusText}</span>` : `<span style="font-family:'SF Mono','Menlo',monospace;font-size:10.5px;color:#94a3b8;">${statusText}</span>`}
-        ${issueCount ? `<span style="font-size:10.5px;color:#f59e0b;">${issueCount} issue${issueCount>1?'s':''}</span>` : ''}
+        ${issueCount ? `<span style="font-size:10.5px;color:var(--bw-warn-border);">${issueCount} issue${issueCount>1?'s':''}</span>` : ''}
         <span style="margin-left:auto;font-family:'SF Mono','Menlo',monospace;font-size:10px;color:#94a3b8;">${node.count} URL${node.count>1?'s':''}</span>
       </div>`;
     if (hasKids) {
@@ -5557,7 +5557,7 @@ function _scRenderAnchorTextCloud() {
   }
   const max = items[0].count;
   const min = items[items.length - 1].count;
-  const palette = ['#0ea5e9', '#22c55e', '#a855f7', '#06b6d4', '#ec4899', '#14b8a6', '#6366f1'];
+  const palette = ['var(--bw-brand)', '#22c55e', '#a855f7', '#06b6d4', '#ec4899', '#14b8a6', 'var(--bw-brand-600)'];
   const _scEsc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   // Count generic occurrences for the banner.
@@ -5573,13 +5573,13 @@ function _scRenderAnchorTextCloud() {
     // Generic anchors are flagged red regardless of frequency colour so the
     // user spots them at a glance — Google treats anchor text as a
     // destination-relevance signal, generic anchors waste it.
-    const color = isGeneric ? '#dc2626' : palette[i % palette.length];
+    const color = isGeneric ? 'var(--bw-error)' : palette[i % palette.length];
     const safe = _scEsc(it.display);
     const titleAttr = isGeneric
       ? `${safe} — generic anchor (${it.count}×). Google can't tell what the linked page is about. Rewrite to describe the destination topic.`
       : `${safe} — used ${it.count} time${it.count===1?'':'s'} pointing to ${it.targets.size} URL${it.targets.size===1?'':'s'}`;
-    const extra = isGeneric ? `border:1px solid rgba(220,38,38,0.4);background:rgba(254,226,226,0.6);` : '';
-    const badge = isGeneric ? `<span style="margin-left:5px;font-size:9.5px;font-weight:700;color:#fff;background:#dc2626;padding:1px 5px;border-radius:8px;letter-spacing:.4px;text-transform:uppercase;">⚠</span>` : '';
+    const extra = isGeneric ? `border:1px solid var(--bw-error-bg);background:var(--bw-error-bg);` : '';
+    const badge = isGeneric ? `<span style="margin-left:5px;font-size:9.5px;font-weight:700;color:#fff;background:var(--bw-error);padding:1px 5px;border-radius:8px;letter-spacing:.4px;text-transform:uppercase;">⚠</span>` : '';
     return `<span class="sv-cloud-tag" style="display:inline-block;padding:5px 10px;font-size:${fontSize}px;font-weight:${500 + Math.round(ratio*300)};color:${color};opacity:${opacity};line-height:1.25;cursor:pointer;border-radius:6px;transition:background .12s,opacity .12s;${extra}"
         onmouseover="this.style.background='#f1f5f9';this.style.opacity='1';"
         onmouseout="this.style.background='${isGeneric ? 'rgba(254,226,226,0.6)' : ''}';this.style.opacity='${opacity}';"
@@ -5587,8 +5587,8 @@ function _scRenderAnchorTextCloud() {
   }).join(' ');
 
   const banner = genericItems.length ? `
-    <div style="margin:0 0 12px;padding:11px 14px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.35);border-left:3px solid #ef4444;border-radius:6px;font-size:12px;color:#7f1d1d;line-height:1.5;">
-      <div style="font-weight:700;color:#991b1b;margin-bottom:3px;">⚠ ${genericItems.length} generic anchor${genericItems.length===1?'':'s'} found · ${genericLinks} link${genericLinks===1?'':'s'} (${genericPct}% of internal links)</div>
+    <div style="margin:0 0 12px;padding:11px 14px;background:var(--bw-error-bg);border:1px solid var(--bw-error-bg);border-radius:6px;font-size:12px;color:var(--bw-error);line-height:1.5;">
+      <div style="font-weight:700;color:var(--bw-error);margin-bottom:3px;">⚠ ${genericItems.length} generic anchor${genericItems.length===1?'':'s'} found · ${genericLinks} link${genericLinks===1?'':'s'} (${genericPct}% of internal links)</div>
       <div>Anchors like <em>"Read more"</em>, <em>"Click here"</em>, <em>"Learn more"</em> are an SEO problem. Google uses anchor text as a topical relevance signal for the destination page — generic anchors give it nothing to work with. They also fail accessibility (screen readers announce the anchor out of context).</div>
       <div style="margin-top:5px;"><strong>Fix:</strong> rewrite each generic anchor so it describes what the linked page is <em>about</em> — match the target page's topic / primary keyword. (e.g. "Read more →" becomes "private in-home care services →".)</div>
     </div>` : '';
