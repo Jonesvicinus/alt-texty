@@ -118,15 +118,15 @@ function escapeHtml(s) {
 
 function _scCopyIcon(url) {
   const sq = (url||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
-  return `<button type="button" onclick="copyUrl(this,'${sq}')" title="Copy URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#6E6E6E);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#008BB3)';this.style.background='var(--surface2,#eef4f7)'" onmouseout="this.style.color='var(--text-muted,#6E6E6E)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
+  return `<button type="button" onclick="copyUrl(this,'${sq}')" title="Copy URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#94a3b8);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>`;
 }
 function _scOpenIcon(url) {
   const sh = (url||'').replace(/"/g,'&quot;');
-  return `${_scCopyIcon(url)}<a href="${sh}" target="_blank" rel="noopener" title="Open in new tab" style="display:inline-block;color:var(--text-muted,#6E6E6E);text-decoration:none;padding:3px 5px;vertical-align:middle;border-radius:4px;" onmouseover="this.style.color='var(--accent,#008BB3)';this.style.background='var(--surface2,#eef4f7)'" onmouseout="this.style.color='var(--text-muted,#6E6E6E)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`;
+  return `${_scCopyIcon(url)}<a href="${sh}" target="_blank" rel="noopener" title="Open in new tab" style="display:inline-block;color:var(--text-muted,#94a3b8);text-decoration:none;padding:3px 5px;vertical-align:middle;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`;
 }
 function _scRefetchIcon(url) {
   const sq = (url||'').replace(/"/g,'&quot;').replace(/'/g,"\\'");
-  return `<button type="button" onclick="scRecrawlUrl(this,'${sq}')" title="Re-crawl this URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#6E6E6E);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#008BB3)';this.style.background='var(--surface2,#eef4f7)'" onmouseout="this.style.color='var(--text-muted,#6E6E6E)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg></button>`;
+  return `<button type="button" onclick="scRecrawlUrl(this,'${sq}')" title="Re-crawl this URL" style="background:none;border:none;cursor:pointer;color:var(--text-muted,#94a3b8);padding:3px 5px;vertical-align:middle;line-height:1;border-radius:4px;" onmouseover="this.style.color='var(--accent,#6366f1)';this.style.background='var(--surface2,#f1f5f9)'" onmouseout="this.style.color='var(--text-muted,#94a3b8)';this.style.background='none'"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg></button>`;
 }
 
 // One-time delegated click on the crawler tbody — clicking anywhere on a
@@ -406,7 +406,65 @@ function _scGridTable(key, cols, rowsHtml, extraStyle) {
 }
 function _scWireNestedGrids(container) {
   if (!container) return;
-  container.querySelectorAll('table.crawler-grid[data-resize-key]').forEach(t => _initTableResizers(t));
+  container.querySelectorAll('table.crawler-grid[data-resize-key]').forEach(t => { _initTableResizers(t); _initGridSort(t); });
+}
+
+// Click-to-sort for nested report grids (All Titles / Metas / H1s / Canonicals,
+// Schema-by-Page, etc.) — these only had resize handles, so header clicks did
+// nothing and users couldn't sort by Chars or by the value column. Sorts the
+// tbody rows in place; empty / "— Missing" values always sink to the bottom.
+function _initGridSort(table) {
+  if (!table) return;
+  const thead = table.querySelector('thead');
+  if (!thead || thead.dataset.sortWired === '1') return;
+  thead.dataset.sortWired = '1';
+  thead.querySelectorAll('th').forEach((th, idx) => {
+    const label = th.querySelector('.th-label');
+    if (!label) return;
+    label.style.cursor = 'pointer';
+    label.title = (label.title ? label.title + ' · ' : '') + 'Click to sort';
+    if (!label.dataset.baseLabel) label.dataset.baseLabel = label.textContent;
+    label.addEventListener('click', (e) => {
+      if (e.target.closest('.th-resize')) return;
+      _sortGridByColumn(table, idx);
+    });
+  });
+}
+
+function _sortGridByColumn(table, colIdx) {
+  const tbody = table.querySelector('tbody');
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll(':scope > tr'));
+  if (rows.length < 2) return;
+  const dir = (String(colIdx) === table.dataset.sortCol && table.dataset.sortDir === 'asc') ? 'desc' : 'asc';
+  const cellText = (r) => { const c = r.cells[colIdx]; return c ? c.textContent.trim() : ''; };
+  const isBlank = (t) => t === '' || /^—/.test(t);
+  const nonEmpty = rows.map(cellText).filter(t => !isBlank(t));
+  const numeric = nonEmpty.length > 0 && nonEmpty.every(t => /^-?[\d,]+(\.\d+)?$/.test(t));
+  rows.sort((a, b) => {
+    const av = cellText(a), bv = cellText(b);
+    const ae = isBlank(av), be = isBlank(bv);
+    if (ae && be) return 0;
+    if (ae) return 1;
+    if (be) return -1;
+    if (numeric) {
+      const an = parseFloat(av.replace(/[^0-9.\-]/g, '')) || 0;
+      const bn = parseFloat(bv.replace(/[^0-9.\-]/g, '')) || 0;
+      return dir === 'asc' ? an - bn : bn - an;
+    }
+    return dir === 'asc'
+      ? av.toLowerCase().localeCompare(bv.toLowerCase())
+      : bv.toLowerCase().localeCompare(av.toLowerCase());
+  });
+  const frag = document.createDocumentFragment();
+  rows.forEach(r => frag.appendChild(r));
+  tbody.appendChild(frag);
+  table.dataset.sortCol = String(colIdx);
+  table.dataset.sortDir = dir;
+  table.querySelectorAll('thead .th-label').forEach((l, i) => {
+    const base = l.dataset.baseLabel || (l.dataset.baseLabel = l.textContent.replace(/\s*[▲▼]$/, ''));
+    l.textContent = base + (i === colIdx ? (dir === 'asc' ? ' ▲' : ' ▼') : '');
+  });
 }
 
 if (typeof document !== 'undefined') {
@@ -817,7 +875,7 @@ function showToast(message, kind) {
     return s;
   })();
   const t = document.createElement('div');
-  const bg = kind === 'error' ? '#dc2626' : kind === 'warn' ? '#f59e0b' : '#008BB3';
+  const bg = kind === 'error' ? '#dc2626' : kind === 'warn' ? '#f59e0b' : '#0ea5e9';
   t.style.cssText = `background:${bg};color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;font-weight:500;max-width:380px;box-shadow:0 4px 12px rgba(0,0,0,0.15);pointer-events:auto;`;
   t.textContent = message;
   stack.appendChild(t);
@@ -897,11 +955,11 @@ function crawlerUpdateQueuePanel(sample, totalCount) {
     const safe = escapeHtml(url);
     html += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;">
       <button onclick="crawlerExcludeFromQueue('${safe.replace(/'/g, "\\'")}')" title="Exclude this URL from the rest of the crawl" style="flex-shrink:0;background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;line-height:1;padding:0 4px;font-weight:700;">✕</button>
-      <span style="color:#203B56;word-break:break-all;">${safe}</span>
+      <span style="color:#0f172a;word-break:break-all;">${safe}</span>
     </div>`;
   }
   if (truncated) {
-    html += `<div style="padding:6px 0 0 0;color:#6E6E6E;font-style:italic;">…and ${count - list.length} more not shown</div>`;
+    html += `<div style="padding:6px 0 0 0;color:#64748b;font-style:italic;">…and ${count - list.length} more not shown</div>`;
   }
   body.innerHTML = html;
 }
@@ -1000,7 +1058,7 @@ function matchesCategory(page, cat) {
   // a bug, and lumping it into "must fix" buries the real errors.
   const sev = (i) => {
     const l = i.toLowerCase();
-    if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content/.test(l)) return 'error';
+    if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
     if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
     return 'info';
   };
@@ -1351,7 +1409,7 @@ function _scRenderJsDiffPanel() {
   const clean = total - withDiff.length;
 
   if (!withDiff.length) {
-    panel.innerHTML = `<div style="padding:14px 16px;background:var(--surface2,#eef4f7);border-bottom:1px solid var(--border,#e5e7eb);">
+    panel.innerHTML = `<div style="padding:14px 16px;background:var(--surface2,#f8fafc);border-bottom:1px solid var(--border,#e5e7eb);">
       <div style="font-size:.85rem;font-weight:600;color:#166534;">✓ All ${total} compared pages render the same with and without JS.</div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;line-height:1.5;">
         Title, meta, H1, schema, word count, link counts and image counts all match. AI crawlers without JS execution see the same content as Google's full renderer. Server-side rendering is doing its job.
@@ -1377,7 +1435,7 @@ function _scRenderJsDiffPanel() {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fmtVal = (v) => {
     if (v == null || v === '') return '<span style="color:var(--text-muted);font-style:italic;">— empty</span>';
-    if (Array.isArray(v)) return v.length ? v.map(x => `<code style="font-size:10.5px;background:var(--surface2,#eef4f7);padding:1px 5px;border-radius:3px;margin-right:3px;">${esc(x)}</code>`).join('') : '<span style="color:var(--text-muted);font-style:italic;">— none</span>';
+    if (Array.isArray(v)) return v.length ? v.map(x => `<code style="font-size:10.5px;background:var(--surface2,#f8fafc);padding:1px 5px;border-radius:3px;margin-right:3px;">${esc(x)}</code>`).join('') : '<span style="color:var(--text-muted);font-style:italic;">— none</span>';
     return esc(v);
   };
   const fieldRow = (label, jsVal, nojsVal, differs) => {
@@ -1396,9 +1454,9 @@ function _scRenderJsDiffPanel() {
     const fields = new Set(r.js_diff.fields || []);
     const nojs = r.non_js || {};
     return `<div data-jsdiff-sev="${sev}" style="border:1px solid var(--border,#e5e7eb);border-radius:6px;margin:10px 14px;overflow:hidden;">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2,#eef4f7);border-bottom:1px solid var(--border,#e5e7eb);">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface2,#f8fafc);border-bottom:1px solid var(--border,#e5e7eb);">
         <span style="display:inline-block;padding:3px 9px;border-radius:999px;border:1px solid ${c.bd};background:${c.bg};color:${c.fg};font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">${sev}</span>
-        <a href="${esc(r.url || '')}" target="_blank" style="color:var(--accent,#008BB3);font-size:.78rem;font-weight:600;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.url || '')}</a>
+        <a href="${esc(r.url || '')}" target="_blank" style="color:var(--accent,#6366f1);font-size:.78rem;font-weight:600;text-decoration:none;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.url || '')}</a>
         <span style="font-size:.7rem;color:var(--text-muted);">${(r.js_diff.fields || []).length} field${((r.js_diff.fields || []).length)===1?'':'s'} differ</span>
       </div>
       <table style="width:100%;border-collapse:collapse;">
@@ -1426,7 +1484,7 @@ function _scRenderJsDiffPanel() {
     <button type="button" class="jsdiff-chip" data-sev="${sev}" onclick="_scJsDiffSetFilter('${sev}')" style="padding:4px 12px;border-radius:14px;border:1px solid ${color.bd};background:${color.bg};color:${color.fg};font-size:11.5px;cursor:pointer;font-weight:600;">${label} <span style="opacity:.75;font-weight:400;">${n}</span></button>`;
 
   panel.innerHTML = `
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border,#e5e7eb);background:var(--surface2,#eef4f7);">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border,#e5e7eb);background:var(--surface2,#f8fafc);">
       <div style="font-size:.85rem;font-weight:600;color:var(--text);margin-bottom:4px;">JS vs non-JS HTML diff</div>
       <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;line-height:1.55;">
         Compared <b>${total}</b> pages in both modes. <b style="color:#991b1b;">${withDiff.length}</b> have content invisible to AI crawlers (ChatGPT, Claude, Perplexity, Google-Extended) which mostly don't execute JS. <b style="color:#166534;">${clean}</b> render the same in both modes.
@@ -1552,7 +1610,6 @@ function _scRenderAllImagesPanel() {
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Image src</th>
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Alt text</th>
           <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Page${groups.some(g => g.pages.length > 1) ? '(s)' : ''} where used</th>
-              <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);width:110px;">Alt Text AI</th>
         </tr>
       </thead>
       <tbody>
@@ -1569,9 +1626,6 @@ function _scRenderAllImagesPanel() {
               <td title="${safeSrc}" style="padding:6px 10px;word-break:break-all;white-space:normal;"><a href="${safeSrc}" target="_blank" style="color:var(--accent);">${safeSrc}</a></td>
               <td title="${escapeHtml(first.alt || '')}" style="padding:6px 10px;white-space:normal;">${altHtml}</td>
               <td style="padding:6px 10px;white-space:normal;">${pagesHtml}</td>
-              <td style="padding:6px 8px;">
-                ${first.classification !== 'present' ? `<button onclick="_altGenerate(this)" data-src="${safeSrc}" data-page="${escapeHtml(g.pages && g.pages[0] ? g.pages[0] : '')}" data-cls="${escapeHtml(first.classification)}" style="background:#7c3aed;color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">Generate</button>` : ''}
-              </td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -1845,37 +1899,33 @@ function _scRenderAllValuesPanel(cat) {
   const overLimit = spec.limit ? rows.filter(r => r[spec.field] && (r[spec.len] ? r[spec.len] : r[spec.field].length) > spec.limit).length : 0;
 
   const summary = `
-    <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);position:sticky;left:0;">
       <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.78rem;align-items:center;">
         <span><b style="color:var(--text);font-size:1.05rem;font-variant-numeric:tabular-nums;">${total}</b> <span style="color:var(--text-muted);">pages</span></span>
         <span><b style="color:var(--text);font-size:1.05rem;font-variant-numeric:tabular-nums;">${filled}</b> <span style="color:var(--text-muted);">with ${escapeHtml(spec.label.toLowerCase())}</span></span>
         ${empty ? `<span><b style="color:#ef4444;font-size:1.05rem;font-variant-numeric:tabular-nums;">${empty}</b> <span style="color:var(--text-muted);">missing</span></span>` : ''}
         ${spec.limit ? `<span><b style="color:${overLimit ? '#ef4444' : 'var(--text)'};font-size:1.05rem;font-variant-numeric:tabular-nums;">${overLimit}</b> <span style="color:var(--text-muted);">over ${spec.limit} chars</span></span>` : ''}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;">
-          <button class="export-btn" type="button" onclick="_scCopyAllValues('${cat}')" title="Copy URL → ${escapeHtml(spec.label)} as TSV (paste into Sheets/Excel)" style="padding:5px 12px;font-size:11.5px;background:#eef4f7;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-weight:600;cursor:pointer;">Copy as TSV</button>
-          <button class="export-btn" type="button" onclick="_scCopyValuesOnly('${cat}')" title="Copy just the ${escapeHtml(spec.label.toLowerCase())} values, one per line" style="padding:5px 12px;font-size:11.5px;background:#eef4f7;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-weight:600;cursor:pointer;">Copy values only</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="export-btn" type="button" onclick="_scCopyAllValues('${cat}')" title="Copy URL → ${escapeHtml(spec.label)} as TSV (paste into Sheets/Excel)" style="padding:5px 12px;font-size:11.5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-weight:600;cursor:pointer;">Copy as TSV</button>
+          <button class="export-btn" type="button" onclick="_scCopyValuesOnly('${cat}')" title="Copy just the ${escapeHtml(spec.label.toLowerCase())} values, one per line" style="padding:5px 12px;font-size:11.5px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-weight:600;cursor:pointer;">Copy values only</button>
         </div>
       </div>
     </div>`;
 
   const hasChars = !!spec.limit;
-  const hasAI = (cat === '__all_metas' || cat === '__all_titles');
-  const aiField = cat === '__all_metas' ? 'meta' : 'title';
-  const valueColW = (cat === '__all_metas') ? ' style="width:680px"' : ' style="width:580px"';
+  const valueColW = (cat === '__all_metas') ? ' style="width:780px"' : ' style="width:680px"';
   const body = `
     <table class="crawler-grid" data-resize-key="all-values-${cat}" style="font-size:.78rem;">
       <colgroup>
-        <col style="width:460px">
+        <col style="width:520px">
         <col${valueColW}>
         ${hasChars ? '<col style="width:80px">' : ''}
-        ${hasAI ? '<col style="width:110px">' : ''}
       </colgroup>
       <thead>
         <tr>
           <th style="position:relative;"><span class="th-label">URL</span><span class="th-resize" data-col-idx="0"></span></th>
           <th style="position:relative;"><span class="th-label">${escapeHtml(spec.label)}</span><span class="th-resize" data-col-idx="1"></span></th>
           ${hasChars ? '<th style="position:relative;"><span class="th-label th-center">Chars</span><span class="th-resize" data-col-idx="2"></span></th>' : ''}
-          ${hasAI ? '<th style="position:relative;"><span class="th-label">AI Generate</span></th>' : ''}
         </tr>
       </thead>
       <tbody>
@@ -1888,21 +1938,11 @@ function _scRenderAllValuesPanel(cat) {
           const safeU = escapeHtml(u);
           const safeV = v ? escapeHtml(v) : `<span style="color:#ef4444;font-style:italic;">— ${escapeHtml(spec.emptyClass)}</span>`;
           const cellStyle = over ? 'color:#ef4444;' : (under ? 'color:#f59e0b;' : '');
-          const genBtn = hasAI ? `<td style="text-align:center;">
-            <button onclick="_metaGenerate(this)"
-              data-url="${safeU}"
-              data-field="${aiField}"
-              data-title="${escapeHtml(r.title || '')}"
-              data-meta="${escapeHtml(r.meta_description || '')}"
-              data-h1="${escapeHtml((r.h1_list && r.h1_list[0]) || r.h1 || '')}"
-              style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">Generate</button>
-          </td>` : '';
           return `
-            <tr data-url="${safeU}">
+            <tr data-url="${safeU}" data-value="${escapeHtml((v || '').toLowerCase())}">
               <td title="${safeU}"><a href="${safeU}" target="_blank" style="color:var(--accent);">${safeU}</a></td>
               <td title="${escapeHtml(v)}" style="${cellStyle}">${safeV}</td>
               ${hasChars ? `<td style="text-align:right;${cellStyle}">${v ? n : ''}</td>` : ''}
-              ${genBtn}
             </tr>`;
         }).join('')}
       </tbody>
@@ -2382,14 +2422,14 @@ function _scRenderSummaryPanel() {
       ${stat('Pages crawled', pages.length, 'var(--text)')}
       ${stat('Errors', pagesAffected.error, '#ef4444')}
       ${stat('Warnings', pagesAffected.warn, '#f59e0b')}
-      ${stat('Info', pagesAffected.info, '#008BB3')}
+      ${stat('Info', pagesAffected.info, '#0ea5e9')}
     </div>
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:10px;font-size:12.5px;color:var(--text-muted);line-height:1.55;">
       Below: every distinct issue found, grouped by severity. <b style="color:var(--text);">Click any card</b> to see the affected URLs in its dedicated tab.
     </div>
     ${tier('Errors — must fix', 'error', '#ef4444')}
     ${tier('Warnings — should fix', 'warn', '#f59e0b')}
-    ${tier('Info — intentional content states', 'info', '#008BB3')}
+    ${tier('Info — intentional content states', 'info', '#0ea5e9')}
   `;
   main.appendChild(panel);
 }
@@ -2475,7 +2515,7 @@ function _scRenderSeverityPanel(cat) {
     : cat === '__warn'
     ? 'Should-fix issues. Click any card to see the affected URLs.'
     : 'Informational findings (intentional content states). Click any to drill in.';
-  const sevColor = cat === '__err' ? '#ef4444' : cat === '__warn' ? '#f59e0b' : '#008BB3';
+  const sevColor = cat === '__err' ? '#ef4444' : cat === '__warn' ? '#f59e0b' : '#0ea5e9';
   const totalPages = (crawlerResults || []).length;
   const pagesAffected = (crawlerResults || []).filter(r => (r.issues || []).some(i => sevOf(i) === wantedSev)).length;
   // Match the Summary view styling: stat cards on top, then a grid of
@@ -2665,7 +2705,7 @@ function _renderSchemaByPagePanel() {
   const escapeHtml = _scEscapeHtml;
   // Clickable chips — toggle the type in window._scSchemaPageFilter.types
   const typeChip = (t, n) =>
-    `<button type="button" data-schema-chip="${escapeHtml(t)}" onclick="_scSchemaPageToggleChip('${(t || '').replace(/'/g, "\\'")}')" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:var(--surface);border:1px solid var(--border);border-radius:999px;font-size:11px;cursor:pointer;font-family:inherit;">
+    `<button type="button" class="sc-schema-chip" data-schema-chip="${escapeHtml(t)}" onclick="_scSchemaPageToggleChip('${(t || '').replace(/'/g, "\\'")}')" style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;background:var(--surface);border:1px solid var(--border);border-radius:999px;font-size:11px;cursor:pointer;font-family:inherit;">
        <code style="font-size:10.5px;font-weight:600;color:var(--text);">${escapeHtml(t)}</code>
        <span style="color:var(--text-muted);">×${n}</span>
      </button>`;
@@ -2736,18 +2776,10 @@ window._scSchemaPageToggleChip = function(type) {
   const state = window._scSchemaPageFilter;
   if (state.types.has(type)) state.types.delete(type);
   else state.types.add(type);
+  // Active look driven by the .active class (see style.css) so the white label
+  // text reliably overrides the chip's default inline code colour.
   document.querySelectorAll('[data-schema-chip]').forEach(c => {
-    const active = state.types.has(c.dataset.schemaChip);
-    if (active) {
-      c.style.background = 'var(--accent, #6366f1)';
-      c.style.borderColor = 'var(--accent, #6366f1)';
-      c.querySelectorAll('code, span').forEach(el => el.style.color = '#fff');
-    } else {
-      c.style.background = 'var(--surface)';
-      c.style.borderColor = 'var(--border)';
-      c.querySelectorAll('code').forEach(el => el.style.color = 'var(--text)');
-      c.querySelectorAll('span').forEach(el => el.style.color = 'var(--text-muted)');
-    }
+    c.classList.toggle('active', state.types.has(c.dataset.schemaChip));
   });
   window._scSchemaPageApplyFilter();
 };
@@ -2759,12 +2791,7 @@ window._scSchemaPageSetQuery = function(q) {
 
 window._scSchemaPageClearFilters = function() {
   window._scSchemaPageFilter = { types: new Set(), q: '' };
-  document.querySelectorAll('[data-schema-chip]').forEach(c => {
-    c.style.background = 'var(--surface)';
-    c.style.borderColor = 'var(--border)';
-    c.querySelectorAll('code').forEach(el => el.style.color = 'var(--text)');
-    c.querySelectorAll('span').forEach(el => el.style.color = 'var(--text-muted)');
-  });
+  document.querySelectorAll('[data-schema-chip]').forEach(c => c.classList.remove('active'));
   const inp = document.getElementById('sc-schema-page-url-filter');
   if (inp) inp.value = '';
   window._scSchemaPageApplyFilter();
@@ -2839,9 +2866,9 @@ function _renderNearDupPanel() {
   const pairs = window._ndPairs || [];
   const stats = window._ndStats || {};
   if (!pairs.length) {
-    panel.innerHTML = `<div style="padding:20px;color:var(--text-muted,#6E6E6E);font-size:13px;">
+    panel.innerHTML = `<div style="padding:20px;color:var(--text-muted,#64748b);font-size:13px;">
       Tick <b>Near-duplicate content</b> in the sidebar before crawling, or
-      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="background:var(--accent,#008BB3);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;margin:0 4px;">Run analysis now</button>
+      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="background:var(--accent,#6366f1);color:#fff;border:none;border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;margin:0 4px;">Run analysis now</button>
       against the current crawl.
     </div>`;
     main.appendChild(panel);
@@ -2858,20 +2885,20 @@ function _renderNearDupPanel() {
     const sample = p.shared_phrase_sample || '—';
     return `<tr>
       <td style="font-variant-numeric:tabular-nums;font-weight:700;color:${simColor};">${sim}%</td>
-      <td title="${_scEscapeHtml(p.url_a)}"><a href="${p.url_a}" target="_blank" style="color:var(--accent,#008BB3);">${_scEscapeHtml(pathA)}</a></td>
-      <td title="${_scEscapeHtml(p.url_b)}"><a href="${p.url_b}" target="_blank" style="color:var(--accent,#008BB3);">${_scEscapeHtml(pathB)}</a></td>
-      <td style="color:var(--text-muted,#6E6E6E);font-family:monospace;font-size:.7rem;" title="${_scEscapeHtml(sample)}">${_scEscapeHtml(sample)}</td>
-      <td style="text-align:right;"><button type="button" onclick="openNdDiff('${safeA}','${safeB}')" style="background:var(--surface,#fff);border:1px solid var(--border,#D9DCDF);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--accent,#008BB3);cursor:pointer;">Compare →</button></td>
+      <td title="${_scEscapeHtml(p.url_a)}"><a href="${p.url_a}" target="_blank" style="color:var(--accent,#6366f1);">${_scEscapeHtml(pathA)}</a></td>
+      <td title="${_scEscapeHtml(p.url_b)}"><a href="${p.url_b}" target="_blank" style="color:var(--accent,#6366f1);">${_scEscapeHtml(pathB)}</a></td>
+      <td style="color:var(--text-muted,#64748b);font-family:monospace;font-size:.7rem;" title="${_scEscapeHtml(sample)}">${_scEscapeHtml(sample)}</td>
+      <td style="text-align:right;"><button type="button" onclick="openNdDiff('${safeA}','${safeB}')" style="background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:5px;padding:3px 9px;font-size:11px;color:var(--accent,#6366f1);cursor:pointer;">Compare →</button></td>
     </tr>`;
   }).join('');
   panel.innerHTML = `
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border,#D9DCDF);background:var(--surface2,#eef4f7);display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12px;">
-      <span><b style="font-size:16px;font-variant-numeric:tabular-nums;">${pairs.length}</b> <span style="color:var(--text-muted,#6E6E6E);">pair${pairs.length === 1 ? '' : 's'} ≥ ${tPct}%</span></span>
-      <span style="color:var(--text-muted,#6E6E6E);">·</span>
-      <span><b>${stats.docs_analysed || 0}</b> <span style="color:var(--text-muted,#6E6E6E);">analysed</span></span>
-      <span><b>${stats.docs_skipped || 0}</b> <span style="color:var(--text-muted,#6E6E6E);">skipped</span></span>
-      <span style="color:var(--text-muted,#6E6E6E);">· took ${stats.took_ms || 0} ms</span>
-      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="margin-left:auto;background:var(--surface,#fff);border:1px solid var(--border,#D9DCDF);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;">Re-run</button>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border,#e2e8f0);background:var(--surface2,#f8fafc);display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:12px;">
+      <span><b style="font-size:16px;font-variant-numeric:tabular-nums;">${pairs.length}</b> <span style="color:var(--text-muted,#64748b);">pair${pairs.length === 1 ? '' : 's'} ≥ ${tPct}%</span></span>
+      <span style="color:var(--text-muted,#64748b);">·</span>
+      <span><b>${stats.docs_analysed || 0}</b> <span style="color:var(--text-muted,#64748b);">analysed</span></span>
+      <span><b>${stats.docs_skipped || 0}</b> <span style="color:var(--text-muted,#64748b);">skipped</span></span>
+      <span style="color:var(--text-muted,#64748b);">· took ${stats.took_ms || 0} ms</span>
+      <button type="button" onclick="runNearDupAnalysis().then(() => selectCategory('__nd_content'))" style="margin-left:auto;background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;">Re-run</button>
     </div>
     ${_scGridTable('near-dup', [
       {label:'Sim',           width:70},
@@ -2914,7 +2941,7 @@ window.openNdDiff = function(urlA, urlB) {
   shared.forEach(g => g.split(' ').forEach(t => sharedTokens.add(t)));
   const escapeHtml = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const renderBody = (text) => {
-    if (!text) return '<em style="color:var(--text-muted,#6E6E6E);">(no body text captured)</em>';
+    if (!text) return '<em style="color:var(--text-muted,#64748b);">(no body text captured)</em>';
     const sentences = text.split(/(?<=[.!?])\s+/);
     return sentences.map(sent => {
       const words = (sent.toLowerCase().match(/[a-z][a-z'\-]{1,}/g) || []).filter(t => sharedTokens.has(t));
@@ -2957,7 +2984,7 @@ function _renderSitemapPanel(cat) {
   panel.id = 'sitemap-panel';
   panel.style.cssText = 'flex:1;overflow:auto;min-height:0;padding:0 14px 14px;font-size:12px;';
   if (!d) {
-    panel.innerHTML = '<div style="padding:20px;color:#6E6E6E;">Click <b>Analyse</b> in the sidebar to run sitemap analysis.</div>';
+    panel.innerHTML = '<div style="padding:20px;color:#64748b;">Click <b>Analyse</b> in the sidebar to run sitemap analysis.</div>';
     main.appendChild(panel);
     return;
   }
@@ -2973,17 +3000,17 @@ function _renderSitemapPanel(cat) {
   };
   const info = map[cat] || { key: '', hint: '' };
   const items = reports[info.key] || [];
-  const sources = (d.sitemaps_found || []).map(s => `<a href="${s.url}" target="_blank" style="color:#4f46e5;">${s.url}</a> <span style="color:#6E6E6E;">(${s.source})</span>`).join(' · ');
+  const sources = (d.sitemaps_found || []).map(s => `<a href="${s.url}" target="_blank" style="color:#4f46e5;">${s.url}</a> <span style="color:#64748b;">(${s.source})</span>`).join(' · ');
   const totals = d.totals || {};
   const warns = (d.warnings || []).map(w => `<div style="font-size:11px;color:#d97706;padding:4px 0;">⚠ ${w}</div>`).join('');
   const header = `
-    <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#6E6E6E;font-size:11px;">
+    <div style="padding:10px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:11px;">
       <div><b>Sitemap(s):</b> ${sources || '(none)'}</div>
       <div><b>Totals:</b> ${totals.urls_in_sitemap || 0} URLs in sitemap · ${totals.urls_in_crawl || 0} crawled · ${totals.sitemaps_walked || 0} sitemap files walked</div>
       ${warns}
     </div>
     <div style="padding:10px 0 4px;font-size:13px;font-weight:600;">${info.label || cat.replace('__sm_','').replace(/^./, c => c.toUpperCase())} (${items.length})</div>
-    <div style="padding-bottom:8px;font-size:11px;color:#6E6E6E;line-height:1.5;">${info.hint}</div>
+    <div style="padding-bottom:8px;font-size:11px;color:#64748b;line-height:1.5;">${info.hint}</div>
   `;
   if (!items.length) {
     panel.innerHTML = header + '<div style="padding:14px 0;color:#16a34a;">✓ Nothing in this category.</div>';
@@ -3040,7 +3067,7 @@ function updateCounts() {
     const l = i.toLowerCase();
     // noindex / canonicalised are intentional states, not errors —
     // surfaced in their own tabs instead of polluting the Errors badge.
-    if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content/.test(l)) return 'error';
+    if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
     if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
     return 'info';
   };
@@ -3472,6 +3499,17 @@ function _buildExportForCategory(cat) {
     return { header, rows };
   }
 
+  // Duplicate titles / metas / H1s / bodies — one row per URL, carrying the
+  // shared value and its group so the export reads like the on-screen report.
+  if (cat === '__dup_titles' || cat === '__dup_metas' || cat === '__dup_h1s' || cat === '__dup_bodies') {
+    const key = {'__dup_titles':'duplicate_titles','__dup_metas':'duplicate_metas','__dup_h1s':'duplicate_h1s','__dup_bodies':'duplicate_bodies'}[cat];
+    const valLabel = {'__dup_titles':'Title','__dup_metas':'Meta Description','__dup_h1s':'H1','__dup_bodies':'Body Hash'}[cat];
+    const groups = ((window.crawlerReports || {})[key]) || [];
+    const rows = [];
+    groups.forEach((g, i) => (g.urls || []).forEach(u => rows.push([i + 1, g.value || '', (g.urls || []).length, u])));
+    return { header: ['Group', valLabel, 'Pages in Group', 'URL'], rows };
+  }
+
   // Default: page-level summary using matchesCategory.
   const filtered = (cat === 'all')
     ? crawlerResults.slice()
@@ -3504,6 +3542,10 @@ function _crawlerExportViewLabel(cat, n) {
     '__sm_redirects':  `Export view (${n} redirect${n===1?'':'s'} in sitemap)`,
     '__sm_pagination': `Export view (${n} pagination URL${n===1?'':'s'} in sitemap)`,
     '__nd_content':    `Export view (${n} near-dup pair${n===1?'':'s'})`,
+    '__dup_titles':    `Export view (${n} duplicate-title URL${n===1?'':'s'})`,
+    '__dup_metas':     `Export view (${n} duplicate-meta URL${n===1?'':'s'})`,
+    '__dup_h1s':       `Export view (${n} duplicate-H1 URL${n===1?'':'s'})`,
+    '__dup_bodies':    `Export view (${n} duplicate-body URL${n===1?'':'s'})`,
     '__schema_by_page':`Export view (${n} schema row${n===1?'':'s'})`,
     'HTTP':            `Export view (${n} 4xx/5xx inlink${n===1?'':'s'})`,
     'Redirect':        `Export view (${n} redirect inlink${n===1?'':'s'})`,
@@ -3852,7 +3894,10 @@ function scFilterByUrl(q) {
   const term = (q || '').toLowerCase().trim();
   const rows = document.querySelectorAll('#crawler-tbody tr[data-url]');
   rows.forEach(row => {
-    const match = !term || (row.dataset.url || '').toLowerCase().includes(term);
+    // All-values panels tag rows with data-value so the filter box also
+    // searches the title/meta/H1/canonical text, not just the URL.
+    const val = row.dataset.value || '';
+    const match = !term || (row.dataset.url || '').toLowerCase().includes(term) || (val && val.includes(term));
     row.style.display = match ? '' : 'none';
     const next = row.nextElementSibling;
     if (next && !next.dataset.url) next.style.display = match ? '' : 'none';
@@ -4292,33 +4337,33 @@ function openCrawlLoader(opts) {
   const ov = document.getElementById('crawl-loader-overlay');
   const body = document.getElementById('crawl-loader-body');
   if (!ov || !body) return;
-  body.innerHTML = '<div style="padding:20px;text-align:center;color:#6E6E6E;font-size:12px;">Loading saved crawls…</div>';
+  body.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:12px;">Loading saved crawls…</div>';
   ov.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   const hasCurrent = !!(crawlerResults && crawlerResults.length);
   fetch('/crawl/list').then(r => r.json()).then(d => {
     const crawls = d.crawls || [];
     if (!crawls.length) {
-      body.innerHTML = '<div style="padding:32px;text-align:center;color:#6E6E6E;font-size:13px;">No saved crawls in the last 30 days. Every crawl auto-saves — run one and it will appear here.</div>';
+      body.innerHTML = '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">No saved crawls in the last 30 days. Every crawl auto-saves — run one and it will appear here.</div>';
       return;
     }
     let headerNote;
     if (compareOnly) {
       headerNote = hasCurrent
-        ? `<div style="padding:10px 14px;font-size:11px;color:#6E6E6E;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Pick a saved crawl to diff against the current crawl (${crawlerResults.length} pages).</div>`
+        ? `<div style="padding:10px 14px;font-size:11px;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Pick a saved crawl to diff against the current crawl (${crawlerResults.length} pages).</div>`
         : `<div style="padding:10px 14px;font-size:12px;color:#b45309;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;margin:10px 14px;">Run or load a crawl first, then come back here to compare.</div>`;
     } else {
       headerNote = hasCurrent
-        ? `<div style="padding:10px 14px;font-size:11px;color:#6E6E6E;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Showing last 30 days · Current crawl loaded (${crawlerResults.length} pages) — use <strong>Compare</strong> to diff against any saved crawl.</div>`
-        : `<div style="padding:10px 14px;font-size:11px;color:#6E6E6E;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Showing last 30 days · Load a crawl to view it, then open this list again to compare.</div>`;
+        ? `<div style="padding:10px 14px;font-size:11px;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Showing last 30 days · Current crawl loaded (${crawlerResults.length} pages) — use <strong>Compare</strong> to diff against any saved crawl.</div>`
+        : `<div style="padding:10px 14px;font-size:11px;color:#64748b;background:#f8fafc;border-bottom:1px solid #e2e8f0;">Showing last 30 days · Load a crawl to view it, then open this list again to compare.</div>`;
     }
     const search = `
       <div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;background:#fff;">
-        <input type="search" id="crawl-loader-search" placeholder="Filter by domain, name, or saved by…" oninput="_filterCrawlLoader(this.value)" style="width:100%;padding:8px 12px;font-size:12.5px;border:1px solid #D9DCDF;border-radius:6px;background:#f8fafc;color:#203B56;outline:none;" autocomplete="off" spellcheck="false" />
-        <div id="crawl-loader-search-count" style="font-size:11px;color:#6E6E6E;margin-top:6px;display:none;"></div>
+        <input type="search" id="crawl-loader-search" placeholder="Filter by domain, name, or saved by…" oninput="_filterCrawlLoader(this.value)" style="width:100%;padding:8px 12px;font-size:12.5px;border:1px solid #e2e8f0;border-radius:6px;background:#f8fafc;color:#0f172a;outline:none;" autocomplete="off" spellcheck="false" />
+        <div id="crawl-loader-search-count" style="font-size:11px;color:#64748b;margin-top:6px;display:none;"></div>
       </div>`;
     const header = `
-      <div style="display:grid;grid-template-columns:95px 55px 1fr 100px 80px 200px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#6E6E6E;text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">
+      <div style="display:grid;grid-template-columns:95px 55px 1fr 100px 80px 200px;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #e2e8f0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;font-weight:600;">
         <div>Date</div><div>Time</div><div>Website</div><div>Saved by</div><div style="text-align:right;">Pages</div><div></div>
       </div>`;
     const rows = crawls.map(c => {
@@ -4335,21 +4380,21 @@ function openCrawlLoader(opts) {
         : `<button onclick='loadSavedCrawl(${JSON.stringify(c.file)})' style="padding:6px 10px;font-size:11px;background:#6366f1;color:#fff;border:0;border-radius:4px;cursor:pointer;">Load</button>`;
       const delBtn = compareOnly
         ? ''
-        : `<button onclick='deleteSavedCrawl(${JSON.stringify(c.file)})' title="Delete" style="padding:6px 8px;font-size:11px;background:transparent;color:#6E6E6E;border:1px solid #D9DCDF;border-radius:4px;cursor:pointer;">✕</button>`;
+        : `<button onclick='deleteSavedCrawl(${JSON.stringify(c.file)})' title="Delete" style="padding:6px 8px;font-size:11px;background:transparent;color:#64748b;border:1px solid #e2e8f0;border-radius:4px;cursor:pointer;">✕</button>`;
       const searchBlob = (`${seed} ${c.name || ''} ${savedBy}`).toLowerCase().replace(/"/g,'&quot;');
       return `
         <div data-crawl-row="${c.file}" data-search="${searchBlob}" style="display:grid;grid-template-columns:95px 55px 1fr 100px 80px 200px;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;">
-          <div style="color:#203B56;font-variant-numeric:tabular-nums;">${dateStr}</div>
-          <div style="color:#6E6E6E;font-variant-numeric:tabular-nums;font-family:'SF Mono','Menlo',monospace;">${timeStr}</div>
+          <div style="color:#0f172a;font-variant-numeric:tabular-nums;">${dateStr}</div>
+          <div style="color:#64748b;font-variant-numeric:tabular-nums;font-family:'SF Mono','Menlo',monospace;">${timeStr}</div>
           <div style="min-width:0;">
-            <div style="font-weight:600;color:#203B56;word-break:break-all;">${seed || c.name}
+            <div style="font-weight:600;color:#0f172a;word-break:break-all;">${seed || c.name}
               ${c.source === 'seo-tool' ? '<span title="Saved in seo-tool" style="display:inline-block;margin-left:6px;padding:1px 6px;background:#ede9fe;color:#5b21b6;border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">seo-tool</span>' : ''}
               ${c.source === 'site-crawler' ? '<span title="Saved in site-crawler" style="display:inline-block;margin-left:6px;padding:1px 6px;background:#dbeafe;color:#1e40af;border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">site-crawler</span>' : ''}
             </div>
-            <div style="font-size:10px;color:#6E6E6E;word-break:break-all;">${c.name}</div>
+            <div style="font-size:10px;color:#64748b;word-break:break-all;">${c.name}</div>
           </div>
-          <div style="font-size:11px;color:#6E6E6E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${savedBy}">${savedBy}</div>
-          <div style="text-align:right;color:#203B56;font-variant-numeric:tabular-nums;">${c.pages}</div>
+          <div style="font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${savedBy}">${savedBy}</div>
+          <div style="text-align:right;color:#0f172a;font-variant-numeric:tabular-nums;">${c.pages}</div>
           <div style="display:flex;gap:6px;justify-content:flex-end;">
             ${compareBtn}
             ${loadBtn}
@@ -4450,7 +4495,7 @@ function deleteSavedCrawl(file) {
     const left = document.querySelectorAll('#crawl-loader-body [data-crawl-row]').length;
     if (left === 0) {
       const body = document.getElementById('crawl-loader-body');
-      if (body) body.innerHTML = '<div style="padding:32px;text-align:center;color:#6E6E6E;font-size:13px;">No saved crawls left.</div>';
+      if (body) body.innerHTML = '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">No saved crawls left.</div>';
     }
   });
 }
@@ -4483,8 +4528,8 @@ function _renderCompareModal(d, savedName) {
     ov.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:10000;display:none;flex-direction:column;overflow:hidden;';
     ov.innerHTML = `
       <div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc;flex-shrink:0;">
-        <div style="font-size:13px;font-weight:600;color:#203B56;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="crawl-compare-title">Compare crawls</div>
-        <button onclick="_closeCompareModal()" style="background:#fff;border:1px solid #D9DCDF;border-radius:5px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:#203B56;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;">
+        <div style="font-size:13px;font-weight:600;color:#0f172a;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="crawl-compare-title">Compare crawls</div>
+        <button onclick="_closeCompareModal()" style="background:#fff;border:1px solid #e2e8f0;border-radius:5px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;color:#0f172a;flex-shrink:0;display:inline-flex;align-items:center;gap:6px;">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           Exit Compare
         </button>
@@ -4528,11 +4573,11 @@ function _renderCompareModal(d, savedName) {
   const codesB = aggB.codes || {'2xx':0,'3xx':0,'4xx':0,'5xx':0,'other':0};
 
   const kpi = (label, a, b, opts) => `
-    <div style="flex:1;min-width:130px;padding:12px;border:1px solid #D9DCDF;border-radius:6px;background:#fff;">
-      <div style="font-size:10.5px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${label}</div>
+    <div style="flex:1;min-width:130px;padding:12px;border:1px solid #e2e8f0;border-radius:6px;background:#fff;">
+      <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${label}</div>
       <div style="display:flex;align-items:baseline;gap:8px;">
-        <div style="font-size:20px;font-weight:700;color:#203B56;font-variant-numeric:tabular-nums;">${b}</div>
-        <div style="font-size:11px;color:#6E6E6E;">was ${a}</div>
+        <div style="font-size:20px;font-weight:700;color:#0f172a;font-variant-numeric:tabular-nums;">${b}</div>
+        <div style="font-size:11px;color:#64748b;">was ${a}</div>
         <div style="margin-left:auto;font-size:11px;">${(opts && opts.time) ? deltaTime(a, b) : delta(a, b, opts)}</div>
       </div>
     </div>`;
@@ -4561,7 +4606,7 @@ function _renderCompareModal(d, savedName) {
   const codeRow = (k) => `
     <tr style="border-bottom:1px solid #e2e8f0;">
       <td style="padding:7px 14px;font-weight:600;color:${codeColor[k]};">${k}</td>
-      <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#6E6E6E;">${codesA[k] || 0}</td>
+      <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#64748b;">${codesA[k] || 0}</td>
       <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${codesB[k] || 0}</td>
       <td style="padding:7px 14px;text-align:right;">${delta(codesA[k] || 0, codesB[k] || 0, { lessIsBetter: k !== '2xx' })}</td>
     </tr>`;
@@ -4570,10 +4615,10 @@ function _renderCompareModal(d, savedName) {
       <summary style="padding:12px 18px;cursor:pointer;font-weight:600;font-size:13px;">Status codes</summary>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:#f8fafc;">
-          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Code</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
+          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Code</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
         </tr></thead>
         <tbody>${['2xx','3xx','4xx','5xx','other'].map(codeRow).join('')}</tbody>
       </table>
@@ -4589,24 +4634,24 @@ function _renderCompareModal(d, savedName) {
     const hasDrill = (resolved + introduced + still) > 0;
     return `<tr data-issue-idx="${idx}" data-expanded="0" style="border-bottom:1px solid #e2e8f0;${hasDrill ? 'cursor:pointer;' : ''}" ${hasDrill ? `onclick="_compareToggleIssueDrill(${idx})"` : ''}>
       <td style="padding:7px 14px;">
-        ${hasDrill ? `<span class="ci-arrow" style="display:inline-block;width:10px;color:#6E6E6E;font-size:10px;margin-right:4px;transition:transform .12s;">▶</span>` : '<span style="display:inline-block;width:14px;"></span>'}
+        ${hasDrill ? `<span class="ci-arrow" style="display:inline-block;width:10px;color:#64748b;font-size:10px;margin-right:4px;transition:transform .12s;">▶</span>` : '<span style="display:inline-block;width:14px;"></span>'}
         <span style="display:inline-block;padding:1px 6px;border-radius:3px;background:rgba(0,0,0,0.04);color:${sevColor};font-size:10px;font-weight:600;text-transform:uppercase;margin-right:6px;">${sev}</span><span style="font-size:12px;">${escHtml(it.issue)}</span>
       </td>
-      <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#6E6E6E;">${it.a}</td>
+      <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#64748b;">${it.a}</td>
       <td style="padding:7px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${it.b}</td>
       <td style="padding:7px 14px;text-align:right;">${delta(it.a, it.b)}</td>
     </tr>`;
   };
   const issuesHtml = `
     <details open style="border-bottom:1px solid #e2e8f0;">
-      <summary style="padding:12px 18px;cursor:pointer;font-weight:600;font-size:13px;">Issues (${issues.length}) <span style="font-weight:400;color:#6E6E6E;font-size:11.5px;margin-left:6px;">click any row to see the URLs</span></summary>
-      ${issues.length === 0 ? `<div style="padding:14px 18px;color:#6E6E6E;font-size:12px;">No issues seen in either crawl.</div>` : `
+      <summary style="padding:12px 18px;cursor:pointer;font-weight:600;font-size:13px;">Issues (${issues.length}) <span style="font-weight:400;color:#64748b;font-size:11.5px;margin-left:6px;">click any row to see the URLs</span></summary>
+      ${issues.length === 0 ? `<div style="padding:14px 18px;color:#64748b;font-size:12px;">No issues seen in either crawl.</div>` : `
       <table id="cmp-issues-table" style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:#f8fafc;">
-          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Issue</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
+          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Issue</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
         </tr></thead>
         <tbody>${issues.map((it, i) => issueRow(it, i)).join('')}</tbody>
       </table>`}
@@ -4615,7 +4660,7 @@ function _renderCompareModal(d, savedName) {
   const structure = d.structure || [];
   const structRow = (s) => `<tr style="border-bottom:1px solid #e2e8f0;">
     <td style="padding:6px 14px;font-family:'SF Mono','Menlo',monospace;font-size:12px;">${escHtml(s.path)}</td>
-    <td style="padding:6px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#6E6E6E;">${s.a}</td>
+    <td style="padding:6px 14px;text-align:right;font-variant-numeric:tabular-nums;color:#64748b;">${s.a}</td>
     <td style="padding:6px 14px;text-align:right;font-variant-numeric:tabular-nums;font-weight:600;">${s.b}</td>
     <td style="padding:6px 14px;text-align:right;">${delta(s.a, s.b, { lessIsBetter: false })}</td>
   </tr>`;
@@ -4624,10 +4669,10 @@ function _renderCompareModal(d, savedName) {
       <summary style="padding:12px 18px;cursor:pointer;font-weight:600;font-size:13px;">Site structure (${structure.length} top-level directories)</summary>
       <table style="width:100%;border-collapse:collapse;font-size:12px;">
         <thead><tr style="background:#f8fafc;">
-          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Directory</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
-          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#6E6E6E;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
+          <th style="padding:7px 14px;text-align:left;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Directory</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Old</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">New</th>
+          <th style="padding:7px 14px;text-align:right;font-weight:600;color:#64748b;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;">Δ</th>
         </tr></thead>
         <tbody>${structure.map(structRow).join('')}</tbody>
       </table>
@@ -4636,7 +4681,7 @@ function _renderCompareModal(d, savedName) {
   const s = d.summary || {};
   const urlRow = (x, sign, signColor) => {
     const sc = x.status_code ? `<span style="font-size:10.5px;color:${x.status_code >= 400 ? '#ef4444' : x.status_code >= 300 ? '#f59e0b' : '#22c55e'};font-weight:600;font-variant-numeric:tabular-nums;margin-right:8px;">${x.status_code}</span>` : '';
-    const ti = x.title ? `<div style="font-size:11px;color:#6E6E6E;margin-top:2px;">${escHtml(x.title.slice(0, 100))}</div>` : '';
+    const ti = x.title ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${escHtml(x.title.slice(0, 100))}</div>` : '';
     return `<div style="padding:6px 14px;border-bottom:1px solid #e2e8f0;">
       <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-family:'SF Mono','Menlo',monospace;">
         <span style="color:${signColor};font-weight:700;">${sign}</span>
@@ -4661,7 +4706,7 @@ function _renderCompareModal(d, savedName) {
       if (f === 'body_hash') { oldv = oldv ? oldv.slice(0, 8) + '…' : '—'; newv = newv ? newv.slice(0, 8) + '…' : '—'; }
       else { oldv = (oldv == null ? '—' : String(oldv)).slice(0, 220); newv = (newv == null ? '—' : String(newv)).slice(0, 220); }
       return `<div style="display:grid;grid-template-columns:120px 1fr;gap:8px;margin-top:4px;">
-        <div style="font-size:11px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.04em;">${FIELD_LABELS[f] || f}</div>
+        <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.04em;">${FIELD_LABELS[f] || f}</div>
         <div style="font-size:12px;">
           <div style="color:#ef4444;">− ${escHtml(oldv)}</div>
           <div style="color:#10b981;">+ ${escHtml(newv)}</div>
@@ -4676,9 +4721,9 @@ function _renderCompareModal(d, savedName) {
     </div>`;
   };
   const sliceList = (items, max, render) => {
-    if (!items || !items.length) return `<div style="padding:14px 18px;color:#6E6E6E;font-size:12px;">None.</div>`;
+    if (!items || !items.length) return `<div style="padding:14px 18px;color:#64748b;font-size:12px;">None.</div>`;
     return items.slice(0, max).map(render).join('') +
-      (items.length > max ? `<div style="padding:8px 14px;font-size:11px;color:#6E6E6E;">…and ${items.length - max} more</div>` : '');
+      (items.length > max ? `<div style="padding:8px 14px;font-size:11px;color:#64748b;">…and ${items.length - max} more</div>` : '');
   };
 
   const tabs = [
@@ -4695,7 +4740,7 @@ function _renderCompareModal(d, savedName) {
     const isActive = t.id === active;
     const badge = (t.count != null && t.count > 0)
       ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:${t.color || (isActive ? '#6366f1' : '#f1f5f9')};color:${t.color || isActive ? '#fff' : '#64748b'};font-size:10.5px;font-variant-numeric:tabular-nums;font-weight:600;">${t.count}</span>`
-      : (t.count === 0 ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:#eef4f7;color:#6E6E6E;font-size:10.5px;font-variant-numeric:tabular-nums;">0</span>` : '');
+      : (t.count === 0 ? `<span style="margin-left:6px;padding:1px 7px;border-radius:10px;background:#f1f5f9;color:#64748b;font-size:10.5px;font-variant-numeric:tabular-nums;">0</span>` : '');
     return `<button type="button" onclick="_compareSwitchTab('${t.id}')" style="background:none;border:0;border-bottom:2px solid ${isActive ? '#6366f1' : 'transparent'};padding:11px 16px;cursor:pointer;font-size:12.5px;font-weight:${isActive ? 700 : 500};color:${isActive ? '#0f172a' : '#64748b'};display:inline-flex;align-items:center;gap:0;flex-shrink:0;">${t.label}${badge}</button>`;
   }).join('');
 
@@ -4703,47 +4748,47 @@ function _renderCompareModal(d, savedName) {
   if (active === 'overview') {
     bodyHtml = toplineHtml +
       `<div style="padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div style="border:1px solid #D9DCDF;border-radius:8px;background:#fff;overflow:hidden;">
-          <div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;">Top moving issues</div>
-          ${(d.issues || []).slice(0, 8).length === 0 ? `<div style="padding:14px;color:#6E6E6E;font-size:12px;">No issues changed.</div>` : `
+        <div style="border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden;">
+          <div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Top moving issues</div>
+          ${(d.issues || []).slice(0, 8).length === 0 ? `<div style="padding:14px;color:#64748b;font-size:12px;">No issues changed.</div>` : `
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <tbody>${(d.issues || []).slice(0, 8).map(it => `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:7px 14px;">${escHtml(it.issue)}</td><td style="padding:7px 14px;text-align:right;color:#6E6E6E;">${it.a}</td><td style="padding:7px 14px;text-align:right;font-weight:600;">${it.b}</td><td style="padding:7px 14px;text-align:right;">${delta(it.a, it.b)}</td></tr>`).join('')}</tbody>
+            <tbody>${(d.issues || []).slice(0, 8).map(it => `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:7px 14px;">${escHtml(it.issue)}</td><td style="padding:7px 14px;text-align:right;color:#64748b;">${it.a}</td><td style="padding:7px 14px;text-align:right;font-weight:600;">${it.b}</td><td style="padding:7px 14px;text-align:right;">${delta(it.a, it.b)}</td></tr>`).join('')}</tbody>
           </table>`}
         </div>
-        <div style="border:1px solid #D9DCDF;border-radius:8px;background:#fff;overflow:hidden;">
-          <div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;">Top moving directories</div>
-          ${(d.structure || []).filter(x => x.delta !== 0).slice(0, 8).length === 0 ? `<div style="padding:14px;color:#6E6E6E;font-size:12px;">No directory changes.</div>` : `
+        <div style="border:1px solid #e2e8f0;border-radius:8px;background:#fff;overflow:hidden;">
+          <div style="padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;">Top moving directories</div>
+          ${(d.structure || []).filter(x => x.delta !== 0).slice(0, 8).length === 0 ? `<div style="padding:14px;color:#64748b;font-size:12px;">No directory changes.</div>` : `
           <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <tbody>${(d.structure || []).filter(x => x.delta !== 0).slice(0, 8).map(s2 => `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:7px 14px;font-family:'SF Mono','Menlo',monospace;">${escHtml(s2.path)}</td><td style="padding:7px 14px;text-align:right;color:#6E6E6E;">${s2.a}</td><td style="padding:7px 14px;text-align:right;font-weight:600;">${s2.b}</td><td style="padding:7px 14px;text-align:right;">${delta(s2.a, s2.b, { lessIsBetter: false })}</td></tr>`).join('')}</tbody>
+            <tbody>${(d.structure || []).filter(x => x.delta !== 0).slice(0, 8).map(s2 => `<tr style="border-bottom:1px solid #e2e8f0;"><td style="padding:7px 14px;font-family:'SF Mono','Menlo',monospace;">${escHtml(s2.path)}</td><td style="padding:7px 14px;text-align:right;color:#64748b;">${s2.a}</td><td style="padding:7px 14px;text-align:right;font-weight:600;">${s2.b}</td><td style="padding:7px 14px;text-align:right;">${delta(s2.a, s2.b, { lessIsBetter: false })}</td></tr>`).join('')}</tbody>
           </table>`}
         </div>
       </div>
       <div style="padding:0 18px 18px;">
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
-          <div style="border:1px solid #D9DCDF;border-radius:8px;padding:14px;background:#fff;">
-            <div style="font-size:11px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs added</div>
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs added</div>
             <div style="font-size:24px;font-weight:700;color:#10b981;font-variant-numeric:tabular-nums;">${s.added || 0}</div>
             <button onclick="_compareSwitchTab('added')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
-          <div style="border:1px solid #D9DCDF;border-radius:8px;padding:14px;background:#fff;">
-            <div style="font-size:11px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs removed</div>
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs removed</div>
             <div style="font-size:24px;font-weight:700;color:#ef4444;font-variant-numeric:tabular-nums;">${s.removed || 0}</div>
             <button onclick="_compareSwitchTab('removed')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
-          <div style="border:1px solid #D9DCDF;border-radius:8px;padding:14px;background:#fff;">
-            <div style="font-size:11px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs changed</div>
+          <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;background:#fff;">
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">URLs changed</div>
             <div style="font-size:24px;font-weight:700;color:#f59e0b;font-variant-numeric:tabular-nums;">${s.changed || 0}</div>
             <button onclick="_compareSwitchTab('changed')" style="margin-top:6px;background:none;border:0;color:#6366f1;font-size:12px;cursor:pointer;padding:0;">View →</button>
           </div>
         </div>
-        <div style="margin-top:10px;font-size:11px;color:#6E6E6E;">Unchanged: ${s.unchanged || 0} URLs (same on both crawls)</div>
+        <div style="margin-top:10px;font-size:11px;color:#64748b;">Unchanged: ${s.unchanged || 0} URLs (same on both crawls)</div>
       </div>`;
   } else if (active === 'codes') {
     bodyHtml = codesHtml;
   } else if (active === 'issues') {
     bodyHtml = issuesHtml;
   } else if (active === 'structure') {
-    bodyHtml = structureHtml || `<div style="padding:18px;color:#6E6E6E;font-size:12px;">No structural changes.</div>`;
+    bodyHtml = structureHtml || `<div style="padding:18px;color:#64748b;font-size:12px;">No structural changes.</div>`;
   } else if (active === 'added') {
     bodyHtml = `<div style="padding:0;">${sliceList(d.added, 1000, (x) => urlRow(x, '+', '#10b981'))}</div>`;
   } else if (active === 'removed') {
@@ -4784,9 +4829,9 @@ window._compareToggleIssueDrill = function(idx) {
   const escHtml = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const renderList = (urls, total, emptyMsg, color) => {
     const safeUrls = Array.isArray(urls) ? urls : [];
-    if (!safeUrls.length) return `<div style="padding:10px 12px;color:#6E6E6E;font-size:11px;font-style:italic;">${emptyMsg}</div>`;
+    if (!safeUrls.length) return `<div style="padding:10px 12px;color:#64748b;font-size:11px;font-style:italic;">${emptyMsg}</div>`;
     const more = (total != null && total > safeUrls.length)
-      ? `<div style="padding:6px 12px;font-size:10.5px;color:#6E6E6E;">…and ${total - safeUrls.length} more</div>`
+      ? `<div style="padding:6px 12px;font-size:10.5px;color:#64748b;">…and ${total - safeUrls.length} more</div>`
       : '';
     return safeUrls.map(u => `
       <div style="padding:5px 12px;font-size:11.5px;font-family:'SF Mono','Menlo',monospace;border-bottom:1px solid #e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -4805,15 +4850,15 @@ window._compareToggleIssueDrill = function(idx) {
     <td colspan="4" style="padding:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:#e2e8f0;">
         <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Resolved <span style="color:#6E6E6E;font-weight:500;">(${oat})</span></div>
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Resolved <span style="color:#64748b;font-weight:500;">(${oat})</span></div>
           <div style="max-height:340px;overflow:auto;">${renderList(onlyA, oat, 'No URLs resolved', '#10b981')}</div>
         </div>
         <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Newly broken <span style="color:#6E6E6E;font-weight:500;">(${obt})</span></div>
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#ef4444;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Newly broken <span style="color:#64748b;font-weight:500;">(${obt})</span></div>
           <div style="max-height:340px;overflow:auto;">${renderList(onlyB, obt, 'No new URLs broken', '#ef4444')}</div>
         </div>
         <div style="background:#fff;">
-          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Still failing <span style="color:#6E6E6E;font-weight:500;">(${bt})</span></div>
+          <div style="padding:8px 12px;font-size:10.5px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e2e8f0;background:#f8fafc;">Still failing <span style="color:#64748b;font-weight:500;">(${bt})</span></div>
           <div style="max-height:340px;overflow:auto;">${renderList(both, bt, 'None — issue cleared', '#f59e0b')}</div>
         </div>
       </div>
@@ -4948,14 +4993,14 @@ function _scBuildSiteStructureTree(results) {
 function _scRenderSiteStructure() {
   const results = crawlerResults || [];
   if (!results.length) {
-    return '<div style="padding:32px;text-align:center;color:#6E6E6E;font-size:13px;">Crawl the site first to see its structure.</div>';
+    return '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">Crawl the site first to see its structure.</div>';
   }
   const view = window._svView || 'sunburst';
   const root = _scBuildSiteStructureTree(results);
 
   const tab = (id, label, icon) => `
     <button type="button" onclick="_svSwitchView('${id}')"
-      style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:${view===id?'var(--accent,#008BB3)':'var(--surface2,#eef4f7)'};color:${view===id?'#fff':'var(--text,#0f172a)'};border:1px solid ${view===id?'var(--accent,#008BB3)':'var(--border,#D9DCDF)'};border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">
+      style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:${view===id?'var(--accent,#6366f1)':'var(--surface2,#f1f5f9)'};color:${view===id?'#fff':'var(--text,#0f172a)'};border:1px solid ${view===id?'var(--accent,#6366f1)':'var(--border,#e2e8f0)'};border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;">
       <span style="font-size:14px;line-height:1;">${icon}</span>${label}
     </button>`;
 
@@ -4970,7 +5015,7 @@ function _scRenderSiteStructure() {
       ${tab('sunburst', 'Sunburst', '☀')}
       ${tab('hierarchy', 'Hierarchy', '⇲')}
       ${tab('cloud', 'Anchor cloud', '☁')}
-      <span style="margin-left:auto;font-size:11px;color:#6E6E6E;">${results.length} URLs · ${root.errors} broken · ${root.issues} issue${root.issues===1?'':'s'} total</span>
+      <span style="margin-left:auto;font-size:11px;color:#64748b;">${results.length} URLs · ${root.errors} broken · ${root.issues} issue${root.issues===1?'':'s'} total</span>
     </div>
     ${body}`;
 }
@@ -5019,7 +5064,7 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
   const depth = Math.max(2, subDepth(focus));
   const rw = Math.min(72, (Math.min(W, H) / 2 - innerRadius - 10) / depth);
 
-  const palette = ['#008BB3', '#22c55e', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#14b8a6', '#f43f5e'];
+  const palette = ['#0ea5e9', '#22c55e', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#14b8a6', '#f43f5e'];
   const sliceColor = (node, d) => {
     if (node.errors > 0) return '#ef4444';
     if (node.leaf && node.leaf.status_code >= 300 && node.leaf.status_code < 400) return '#f59e0b';
@@ -5170,24 +5215,24 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
     <div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
         ${buildCrumbs()}
-        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #D9DCDF;border-radius:6px;padding:4px 10px;min-width:240px;">
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:4px 10px;min-width:240px;">
           <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="color:#94a3b8;flex-shrink:0;"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
           <input type="text" id="sv-search" placeholder="Search ${focusUrls.length} URL${focusUrls.length===1?'':'s'} in this view…"
             oninput="_svFilter(this.value)" autocomplete="off" spellcheck="false"
-            style="background:none;border:none;outline:none;font-size:12px;color:#203B56;flex:1;min-width:0;font-family:inherit;" />
+            style="background:none;border:none;outline:none;font-size:12px;color:#0f172a;flex:1;min-width:0;font-family:inherit;" />
           <button type="button" id="sv-search-clear" onclick="document.getElementById('sv-search').value='';_svFilter('')" style="display:none;background:none;border:none;cursor:pointer;color:#94a3b8;font-size:14px;line-height:1;padding:0 2px;" title="Clear">×</button>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start;">
         <div style="min-width:0;">
           <div id="sv-svg-wrap" style="position:relative;background:#f8fafc;border-radius:10px;padding:8px;overflow:hidden;touch-action:none;">
-            <div style="position:absolute;top:14px;left:14px;font-size:10.5px;color:#6E6E6E;background:#fff;border:1px solid #D9DCDF;border-radius:6px;padding:5px 9px;z-index:2;pointer-events:none;line-height:1.3;max-width:55%;">
+            <div style="position:absolute;top:14px;left:14px;font-size:10.5px;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:5px 9px;z-index:2;pointer-events:none;line-height:1.3;max-width:55%;">
               click slice to drill · centre to go back · drag to pan · scroll to zoom
             </div>
             <div style="position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:5px;z-index:2;">
-              <button type="button" onclick="_svZoom(1.25)" title="Zoom in" style="width:30px;height:30px;background:#fff;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">+</button>
-              <button type="button" onclick="_svZoom(0.8)" title="Zoom out" style="width:30px;height:30px;background:#fff;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">−</button>
-              <button type="button" onclick="_svResetView()" title="Reset zoom & position" style="width:30px;height:30px;background:#fff;border:1px solid #D9DCDF;border-radius:6px;color:#203B56;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">⟲</button>
+              <button type="button" onclick="_svZoom(1.25)" title="Zoom in" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">+</button>
+              <button type="button" onclick="_svZoom(0.8)" title="Zoom out" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">−</button>
+              <button type="button" onclick="_svResetView()" title="Reset zoom & position" style="width:30px;height:30px;background:#fff;border:1px solid #e2e8f0;border-radius:6px;color:#0f172a;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;font-family:inherit;" onmouseover="this.style.borderColor='#6366f1';this.style.color='#6366f1'" onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'">⟲</button>
             </div>
             <svg id="sv-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet"
                  data-vb-w="${W}" data-vb-h="${H}"
@@ -5196,11 +5241,11 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
               ${center}
             </svg>
           </div>
-          <div style="margin-top:14px;background:#f8fafc;border:1px solid #D9DCDF;border-radius:10px;overflow:hidden;">
-            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:11.5px;font-weight:700;color:#203B56;text-transform:uppercase;letter-spacing:.05em;">
+          <div style="margin-top:14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:11.5px;font-weight:700;color:#0f172a;text-transform:uppercase;letter-spacing:.05em;">
               <span>Pages in this view</span>
-              <span id="sv-list-count" style="background:#fff;border:1px solid #D9DCDF;border-radius:10px;padding:2px 9px;font-size:10.5px;color:#6E6E6E;font-weight:600;letter-spacing:0;text-transform:none;">${focusUrls.length}</span>
-              <span style="margin-left:auto;font-weight:500;font-size:10.5px;color:#6E6E6E;text-transform:none;letter-spacing:0;">click any URL to open in dock · ⇧-click to filter table</span>
+              <span id="sv-list-count" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:2px 9px;font-size:10.5px;color:#64748b;font-weight:600;letter-spacing:0;text-transform:none;">${focusUrls.length}</span>
+              <span style="margin-left:auto;font-weight:500;font-size:10.5px;color:#64748b;text-transform:none;letter-spacing:0;">click any URL to open in dock · ⇧-click to filter table</span>
             </div>
             <div id="sv-list" data-urls='${focusUrlsJson.replace(/'/g, "&#39;")}' style="max-height:340px;overflow:auto;font-family:'SF Mono','Menlo',monospace;font-size:11.5px;">
               ${_svRenderList(focusUrls, '')}
@@ -5208,13 +5253,13 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
           </div>
         </div>
         <div style="min-width:0;overflow:hidden;">
-          <div id="sv-readout" style="background:#eef4f7;border:1px solid #D9DCDF;border-radius:8px;padding:14px;margin-bottom:12px;min-height:120px;overflow:hidden;">
-            <div style="font-size:10.5px;color:#6E6E6E;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px;">hover a slice</div>
+          <div id="sv-readout" style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:12px;min-height:120px;overflow:hidden;">
+            <div style="font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px;">hover a slice</div>
             <div id="sv-readout-path" style="font-family:'SF Mono','Menlo',monospace;font-size:12px;color:#6366f1;word-break:break-all;overflow-wrap:anywhere;margin-bottom:8px;max-width:100%;">—</div>
-            <div id="sv-readout-stats" style="font-size:11.5px;color:#6E6E6E;line-height:1.55;">Click a slice to drill in. Hold <kbd style="font-family:inherit;background:#fff;border:1px solid #D9DCDF;border-radius:3px;padding:1px 5px;font-size:10.5px;">Shift</kbd> while clicking to filter the table to that subtree instead.</div>
+            <div id="sv-readout-stats" style="font-size:11.5px;color:#64748b;line-height:1.55;">Click a slice to drill in. Hold <kbd style="font-family:inherit;background:#fff;border:1px solid #e2e8f0;border-radius:3px;padding:1px 5px;font-size:10.5px;">Shift</kbd> while clicking to filter the table to that subtree instead.</div>
           </div>
-          <div style="font-size:11px;color:#6E6E6E;line-height:1.55;">
-            <strong style="color:#203B56;font-size:11.5px;">How to read</strong><br>
+          <div style="font-size:11px;color:#64748b;line-height:1.55;">
+            <strong style="color:#0f172a;font-size:11.5px;">How to read</strong><br>
             Each ring is one path level under the centre. Slice size = number of URLs in that subtree. Red = 4xx/5xx pages live in there.
           </div>
         </div>
@@ -5224,7 +5269,7 @@ function _scRenderSiteStructureSunburst(rootTree, results) {
 
 function _svRenderList(pages, filter) {
   if (!pages || !pages.length) {
-    return '<div style="padding:18px 14px;color:#6E6E6E;font-size:12px;font-family:ui-sans-serif,system-ui;text-align:center;">No URLs in this view.</div>';
+    return '<div style="padding:18px 14px;color:#64748b;font-size:12px;font-family:ui-sans-serif,system-ui;text-align:center;">No URLs in this view.</div>';
   }
   const _scEsc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const f = (filter || '').trim().toLowerCase();
@@ -5232,7 +5277,7 @@ function _svRenderList(pages, filter) {
     ? pages.filter(p => ((p.url || p.u) || '').toLowerCase().includes(f) || ((p.title || p.t) || '').toLowerCase().includes(f))
     : pages;
   if (!matches.length) {
-    return `<div style="padding:18px 14px;color:#6E6E6E;font-size:12px;font-family:ui-sans-serif,system-ui;text-align:center;">No URLs match <code style="background:#fff;padding:1px 6px;border-radius:3px;">${_scEsc(filter)}</code></div>`;
+    return `<div style="padding:18px 14px;color:#64748b;font-size:12px;font-family:ui-sans-serif,system-ui;text-align:center;">No URLs match <code style="background:#fff;padding:1px 6px;border-radius:3px;">${_scEsc(filter)}</code></div>`;
   }
   return matches.map(p => {
     const url = p.url || p.u || '';
@@ -5377,12 +5422,12 @@ window._svSliceHover = function(pathStr, count, errors, issues) {
   if (!p || !s) return;
   if (!pathStr) {
     p.textContent = '—';
-    s.innerHTML = 'Click a slice to drill in. Hold <kbd style="font-family:inherit;background:#fff;border:1px solid #D9DCDF;border-radius:3px;padding:1px 5px;font-size:10.5px;">Shift</kbd> while clicking to filter the table to that subtree instead.';
+    s.innerHTML = 'Click a slice to drill in. Hold <kbd style="font-family:inherit;background:#fff;border:1px solid #e2e8f0;border-radius:3px;padding:1px 5px;font-size:10.5px;">Shift</kbd> while clicking to filter the table to that subtree instead.';
     return;
   }
   p.textContent = pathStr || '/';
   const parts = [];
-  parts.push(`<strong style="color:#203B56;">${count}</strong> URL${count===1?'':'s'} under this path`);
+  parts.push(`<strong style="color:#0f172a;">${count}</strong> URL${count===1?'':'s'} under this path`);
   if (errors > 0) parts.push(`<span style="color:#ef4444;font-weight:600;">${errors} broken</span>`);
   if (issues > 0) parts.push(`<span style="color:#f59e0b;font-weight:600;">${issues} issue${issues===1?'':'s'} total</span>`);
   s.innerHTML = parts.join(' · ');
@@ -5506,13 +5551,13 @@ function _scRenderAnchorTextCloud() {
   });
   const items = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 80);
   if (!items.length) {
-    return `<div style="padding:32px;text-align:center;color:#6E6E6E;font-size:13px;">
+    return `<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">
       No anchor text captured yet. Anchor data is collected as the crawler discovers internal links — let the crawl finish, then re-open this view.
     </div>`;
   }
   const max = items[0].count;
   const min = items[items.length - 1].count;
-  const palette = ['#008BB3', '#22c55e', '#a855f7', '#06b6d4', '#ec4899', '#14b8a6', '#6366f1'];
+  const palette = ['#0ea5e9', '#22c55e', '#a855f7', '#06b6d4', '#ec4899', '#14b8a6', '#6366f1'];
   const _scEsc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
   // Count generic occurrences for the banner.
@@ -5538,7 +5583,7 @@ function _scRenderAnchorTextCloud() {
     return `<span class="sv-cloud-tag" style="display:inline-block;padding:5px 10px;font-size:${fontSize}px;font-weight:${500 + Math.round(ratio*300)};color:${color};opacity:${opacity};line-height:1.25;cursor:pointer;border-radius:6px;transition:background .12s,opacity .12s;${extra}"
         onmouseover="this.style.background='#f1f5f9';this.style.opacity='1';"
         onmouseout="this.style.background='${isGeneric ? 'rgba(254,226,226,0.6)' : ''}';this.style.opacity='${opacity}';"
-        title="${titleAttr}">${safe}<span style="font-size:10.5px;font-weight:600;color:#6E6E6E;margin-left:4px;opacity:.85;">${it.count}</span>${badge}</span>`;
+        title="${titleAttr}">${safe}<span style="font-size:10.5px;font-weight:600;color:#64748b;margin-left:4px;opacity:.85;">${it.count}</span>${badge}</span>`;
   }).join(' ');
 
   const banner = genericItems.length ? `
@@ -5553,213 +5598,7 @@ function _scRenderAnchorTextCloud() {
     <div style="display:flex;flex-wrap:wrap;gap:6px 8px;align-items:baseline;justify-content:center;background:#f8fafc;border-radius:10px;padding:24px 22px;line-height:1.6;">
       ${tags}
     </div>
-    <div style="margin-top:10px;font-size:11px;color:#6E6E6E;text-align:center;">
+    <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center;">
       Top ${items.length} anchor text${items.length===1?'':'s'} used in internal links · size = frequency. Red border / ⚠ = generic anchor (rewrite recommended).
     </div>`;
-}
-
-function _altGenerate(btn) {
-  const tr = btn.closest('tr');
-  const src = btn.dataset.src;
-  const page = btn.dataset.page || '';
-  const cls = btn.dataset.cls || 'missing';
-
-  // Remove any previous result row for this image
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains('alt-result-row')) next.remove();
-
-  // Show loading state
-  btn.disabled = true;
-  btn.textContent = '…';
-  tr.style.borderLeft = '3px solid #7c3aed';
-
-  const resultRow = document.createElement('tr');
-  resultRow.className = 'alt-result-row';
-  resultRow.dataset.cls = tr.dataset.cls;
-  resultRow.innerHTML = `<td colspan="5" style="padding:8px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
-    <span style="color:#7c3aed;font-size:11px;">Generating alt text…</span>
-  </td>`;
-  tr.after(resultRow);
-
-  fetch('/generate-alt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ src, page_url: page, classification: cls })
-  })
-  .then(r => r.json())
-  .then(data => {
-    btn.disabled = false;
-    btn.textContent = 'Regenerate';
-    btn.style.background = '#6b7280';
-    tr.style.borderLeft = '';
-
-    if (data.error === 'image_fetch_failed') {
-      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
-        <div style="font-size:11px;color:#ef4444;margin-bottom:6px;">Image unavailable — enter alt text manually:</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;"></textarea>
-          <button onclick="_altCopy(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;">Copy</button>
-        </div>
-      </td>`;
-      return;
-    }
-
-    if (data.error) {
-      const safeSrc2 = escapeHtml(src);
-      const safePage2 = escapeHtml(page);
-      const safeCls2 = escapeHtml(cls);
-      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
-        <span style="color:#ef4444;font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
-        <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
-      </td>`;
-      return;
-    }
-
-    const roleColors = { informative: '#7c3aed', functional: '#2563eb', decorative: '#6b7280', complex: '#d97706' };
-    const confColors = { high: '#16a34a', medium: '#d97706', low: '#ef4444' };
-    const roleColor = roleColors[data.role] || '#6b7280';
-    const confColor = confColors[data.confidence] || '#6b7280';
-    const warningHtml = data.warnings && data.warnings.length
-      ? `<div style="margin-top:6px;padding:4px 8px;background:#fef3c7;border-radius:4px;font-size:10px;color:#92400e;">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
-      : '';
-
-    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="background:${roleColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.role)}</span>
-        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence)} confidence</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:flex-start;">
-        <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:#374151;">${escapeHtml(data.recommended_alt || '')}</textarea>
-        <button onclick="_altCopy(this)" style="background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
-      </div>
-      <div style="margin-top:5px;font-size:10px;color:#6b7280;font-style:italic;">${escapeHtml(data.rationale || '')}</div>
-      ${warningHtml}
-    </td>`;
-  })
-  .catch(err => {
-    btn.disabled = false;
-    btn.textContent = 'Generate';
-    btn.style.background = '#7c3aed';
-    tr.style.borderLeft = '';
-    const safeSrc2 = escapeHtml(src);
-    const safePage2 = escapeHtml(page);
-    const safeCls2 = escapeHtml(cls);
-    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
-      <span style="color:#ef4444;font-size:11px;">Network error — is the app running?</span>
-      <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:#7c3aed;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
-    </td>`;
-  });
-}
-
-function _altCopy(btn) {
-  const textarea = btn.closest('td').querySelector('textarea');
-  if (!textarea) return;
-  const fallback = () => { textarea.select(); document.execCommand('copy'); };
-  if (!navigator.clipboard) { fallback(); return; }
-  navigator.clipboard.writeText(textarea.value)
-    .then(() => {
-      const orig = btn.textContent;
-      btn.textContent = 'Copied!';
-      btn.style.background = '#16a34a';
-      setTimeout(() => { btn.textContent = orig; btn.style.background = '#7c3aed'; }, 1500);
-    })
-    .catch(fallback);
-}
-
-function _metaGenerate(btn) {
-  const tr = btn.closest('tr');
-  const url = btn.dataset.url;
-  const field = btn.dataset.field || 'meta';
-  const colCount = tr.querySelectorAll('td').length;
-
-  const next = tr.nextElementSibling;
-  if (next && next.classList.contains('meta-result-row')) next.remove();
-
-  btn.disabled = true;
-  btn.textContent = '…';
-  tr.style.outline = '2px solid var(--accent)';
-  tr.style.outlineOffset = '-2px';
-
-  const resultRow = document.createElement('tr');
-  resultRow.className = 'meta-result-row';
-  resultRow.innerHTML = `<td colspan="${colCount}" style="padding:8px 14px;background:#eef4f7;border-bottom:1px solid var(--border);">
-    <span style="color:var(--accent);font-size:11px;">Generating…</span>
-  </td>`;
-  tr.after(resultRow);
-
-  fetch('/generate-meta', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      page_url: url,
-      field,
-      current_title: btn.dataset.title || '',
-      current_meta: btn.dataset.meta || '',
-      h1: btn.dataset.h1 || ''
-    })
-  })
-  .then(r => r.json())
-  .then(data => {
-    btn.disabled = false;
-    btn.textContent = 'Regenerate';
-    btn.style.background = '#6b7280';
-    tr.style.outline = '';
-
-    if (data.error) {
-      const safeU = escapeHtml(url);
-      resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
-        <span style="color:#ef4444;font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
-        <button onclick="_metaGenerate(this)" data-url="${safeU}" data-field="${field}"
-          data-title="${escapeHtml(btn.dataset.title||'')}" data-meta="${escapeHtml(btn.dataset.meta||'')}" data-h1="${escapeHtml(btn.dataset.h1||'')}"
-          style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
-      </td>`;
-      return;
-    }
-
-    const confColors = { high: '#108043', medium: '#d97706', low: '#ef4444' };
-    const confColor = confColors[data.confidence] || '#6E6E6E';
-    const charCount = parseInt(data.char_count, 10) || (data.recommended || '').length;
-    const limit = field === 'meta' ? 160 : 65;
-    const charColor = charCount > limit ? '#ef4444' : charCount < (field === 'meta' ? 70 : 30) ? '#d97706' : '#108043';
-    const warningHtml = data.warnings && data.warnings.length
-      ? `<div style="margin-top:6px;padding:4px 8px;background:#fef3c7;border-radius:4px;font-size:10px;color:#92400e;">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
-      : '';
-
-    resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:#eef4f7;border-bottom:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
-        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence || '')} confidence</span>
-        <span style="color:${charColor};font-size:10px;font-weight:700;font-family:'IBM Plex Mono',monospace;">${charCount} chars</span>
-      </div>
-      <div style="display:flex;gap:8px;align-items:flex-start;">
-        <textarea rows="${field === 'meta' ? 3 : 2}" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:var(--text);background:var(--surface);">${escapeHtml(data.recommended || '')}</textarea>
-        <button onclick="_metaCopy(this)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
-      </div>
-      <div style="margin-top:5px;font-size:10px;color:var(--text-muted);font-style:italic;">${escapeHtml(data.rationale || '')}</div>
-      ${warningHtml}
-    </td>`;
-  })
-  .catch(() => {
-    btn.disabled = false;
-    btn.textContent = 'Generate';
-    btn.style.background = 'var(--accent)';
-    tr.style.outline = '';
-    resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:#fef2f2;border-bottom:1px solid #fecaca;">
-      <span style="color:#ef4444;font-size:11px;">Network error</span>
-    </td>`;
-  });
-}
-
-function _metaCopy(btn) {
-  const textarea = btn.closest('td').querySelector('textarea');
-  if (!textarea) return;
-  const fallback = () => { textarea.select(); document.execCommand('copy'); };
-  if (!navigator.clipboard) { fallback(); return; }
-  navigator.clipboard.writeText(textarea.value)
-    .then(() => {
-      const orig = btn.textContent;
-      btn.textContent = 'Copied!';
-      btn.style.background = '#108043';
-      setTimeout(() => { btn.textContent = orig; btn.style.background = 'var(--accent)'; }, 1500);
-    })
-    .catch(fallback);
 }
