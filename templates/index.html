@@ -323,8 +323,14 @@
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             <span>Export view</span>
           </button>
-          <button id="crawler-export-sitemap-btn" style="display:none;"></button>
-          <button id="crawler-export-xlsx-btn" style="display:none;"></button>
+          <button id="crawler-export-sitemap-btn" type="button" onclick="exportCrawlerSitemap()" title="Export an XML sitemap of all 200-status indexable pages found in this crawl" class="detail-action-btn" style="display:none;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Sitemap.xml</span>
+          </button>
+          <button id="crawler-export-xlsx-btn" type="button" onclick="exportCrawlerXlsx()" title="Export the entire crawl as a multi-sheet .xlsx workbook" class="detail-action-btn" style="display:none;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Export .xlsx</span>
+          </button>
           <div style="display:flex;align-items:center;gap:3px;background:var(--bw-surface);border:1px solid var(--bw-rule);border-radius:6px;padding:3px 8px;">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-muted);flex-shrink:0;"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
             <input type="text" id="sc-url-search" placeholder="Filter by URL…" oninput="scFilterByUrl(this.value)" autocomplete="off" spellcheck="false" style="background:none;border:none;outline:none;font-size:11px;width:150px;padding:2px 0;" />
