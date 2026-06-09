@@ -190,3 +190,115 @@ def test_generate_alt_result_includes_warnings_for_bad_alt(client):
     data = json.loads(response.data)
     assert len(data["warnings"]) > 0
     assert any("prefix" in w for w in data["warnings"])
+
+
+# --- /generate-meta route tests ---
+
+def test_generate_meta_missing_url_returns_400(client):
+    resp = client.post("/generate-meta", json={})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "page_url is required"
+
+
+def test_generate_meta_empty_url_returns_400(client):
+    resp = client.post("/generate-meta", json={"page_url": "  "})
+    assert resp.status_code == 400
+    assert resp.get_json()["error"] == "page_url is required"
+
+
+def test_generate_meta_unsafe_url_returns_400(client):
+    for bad_url in ["http://127.0.0.1/admin", "http://localhost/admin"]:
+        resp = client.post("/generate-meta",
+                           json={"page_url": bad_url})
+        assert resp.status_code == 400
+        assert "invalid_url" in resp.get_json()["error"]
+
+
+def test_generate_meta_openai_failure_returns_error_json(client):
+    with patch("alt_text.OpenAI") as mock_openai, \
+         patch("alt_text._requests") as mock_requests:
+        mock_resp = MagicMock()
+        mock_resp.text = "<html><body>Hello world page content</body></html>"
+        mock_requests.get.return_value = mock_resp
+
+        mock_openai.return_value.chat.completions.create.side_effect = Exception("quota exceeded")
+
+        resp = client.post("/generate-meta", json={"page_url": "https://example.com/"})
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["error"] == "openai_failed"
+        assert "quota exceeded" in data["message"]
+
+
+def test_generate_meta_success_returns_structured_result(client):
+    with patch("alt_text.OpenAI") as mock_openai, \
+         patch("alt_text._requests") as mock_requests:
+        mock_page = MagicMock()
+        mock_page.text = "<html><body>Buy our amazing running shoes online.</body></html>"
+        mock_requests.get.return_value = mock_page
+
+        mock_choice = MagicMock()
+        mock_choice.message.content = json.dumps({
+            "recommended": "Shop premium running shoes with free shipping. Top brands, expert reviews, and 30-day returns.",
+            "rationale": "Leads with the primary action and includes trust signals.",
+            "confidence": "high"
+        })
+        mock_openai.return_value.chat.completions.create.return_value.choices = [mock_choice]
+
+        resp = client.post("/generate-meta", json={
+            "page_url": "https://example.com/shoes",
+            "field": "meta",
+            "current_title": "Running Shoes",
+            "h1": "Buy Running Shoes"
+        })
+        data = resp.get_json()
+        assert data["recommended"].startswith("Shop premium")
+        assert data["confidence"] == "high"
+        assert "char_count" in data
+        assert isinstance(data["warnings"], list)
+
+
+def test_generate_title_success_returns_structured_result(client):
+    with patch("alt_text.OpenAI") as mock_openai, \
+         patch("alt_text._requests") as mock_requests:
+        mock_page = MagicMock()
+        mock_page.text = "<html><body>Running shoes page</body></html>"
+        mock_requests.get.return_value = mock_page
+
+        mock_choice = MagicMock()
+        mock_choice.message.content = json.dumps({
+            "recommended": "Running Shoes | Free Shipping | Example",
+            "rationale": "Short, keyword-forward, includes brand.",
+            "confidence": "high"
+        })
+        mock_openai.return_value.chat.completions.create.return_value.choices = [mock_choice]
+
+        resp = client.post("/generate-meta", json={
+            "page_url": "https://example.com/shoes",
+            "field": "title"
+        })
+        data = resp.get_json()
+        assert "Running Shoes" in data["recommended"]
+        assert data["char_count"] == len(data["recommended"])
+
+
+def test_generate_meta_warns_when_too_long(client):
+    long_meta = "A" * 165
+    with patch("alt_text.OpenAI") as mock_openai, \
+         patch("alt_text._requests") as mock_requests:
+        mock_page = MagicMock()
+        mock_page.text = "<html><body>content</body></html>"
+        mock_requests.get.return_value = mock_page
+
+        mock_choice = MagicMock()
+        mock_choice.message.content = json.dumps({
+            "recommended": long_meta,
+            "rationale": "test",
+            "confidence": "low"
+        })
+        mock_openai.return_value.chat.completions.create.return_value.choices = [mock_choice]
+
+        resp = client.post("/generate-meta", json={"page_url": "https://example.com/", "field": "meta"})
+        data = resp.get_json()
+        assert data["warnings"]  # non-empty
+        assert any("trim" in w for w in data["warnings"])

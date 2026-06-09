@@ -173,7 +173,7 @@ function renderRow(d) {
     ${_scInlinksCell(d)}
     <td data-col="title" title="${escapeHtml(d.title||'')}">${d.title ? escapeHtml(d.title) : '<em style="color:var(--bw-error)">missing</em>'}</td>
     <td data-col="tlen">${d.title_len || 0}</td>
-    <td data-col="meta" title="${escapeHtml(d.meta_description||'')}">${d.meta_description ? escapeHtml(d.meta_description) : '<em style="color:var(--bw-error)">missing</em>'}</td>
+    <td data-col="meta" title="${escapeHtml(d.meta_description||'')}">${d.meta_description ? escapeHtml(d.meta_description) : '<em style="color:var(--bw-error)">missing</em> <button onclick="_metaGenerate(this)" data-url="' + escapeHtml(d.url) + '" data-field="meta" data-title="' + escapeHtml(d.title||'') + '" data-meta="" data-h1="' + escapeHtml((d.h1_list&&d.h1_list[0])||d.h1||'') + '" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:10px;cursor:pointer;font-weight:600;vertical-align:middle;margin-left:4px;">Generate</button>'}</td>
     ${_scH1Cells(d)}
     <td data-col="words">${d.word_count || 0}</td>
     <td data-col="speed">${d.response_time || 0}s</td>
@@ -549,8 +549,22 @@ function renderDock() {
 
   // Issues pane
   const issues = page.issues || [];
+  const _dockGenBtn = (i) => {
+    const isMetaMissing  = i === 'Missing meta description';
+    const isTitleMissing = i === 'Missing title';
+    if (!isMetaMissing && !isTitleMissing) return '';
+    const field   = isMetaMissing ? 'meta' : 'title';
+    const safeUrl = escapeHtml(dockUrl);
+    const safeT   = escapeHtml(page.title || '');
+    const safeM   = escapeHtml(page.meta_description || '');
+    const safeH1  = escapeHtml((page.h1_list && page.h1_list[0]) || page.h1 || '');
+    return ` <button onclick="_metaGenerateDock(this)"
+      data-url="${safeUrl}" data-field="${field}"
+      data-title="${safeT}" data-meta="${safeM}" data-h1="${safeH1}"
+      style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:600;vertical-align:middle;">Generate</button>`;
+  };
   document.getElementById('dock-pane-issues').innerHTML = issues.length
-    ? issues.map(i => `<div class="issue-row"><span class="badge ${sevOf(i)}">${sevOf(i).toUpperCase()}</span> ${escapeHtml(i)}</div>`).join('')
+    ? issues.map(i => `<div class="issue-row"><span class="badge ${sevOf(i)}">${sevOf(i).toUpperCase()}</span> ${escapeHtml(i)}${_dockGenBtn(i)}</div>`).join('')
     : '<div class="empty">✓ No issues detected on this page.</div>';
 
   // Inlinks pane
@@ -1600,16 +1614,17 @@ function _scRenderAllImagesPanel() {
         </div>
       </details>
     </div>
-    <table id="sc-all-images-table" style="width:100%;border-collapse:collapse;font-size:.78rem;">
+    <table id="sc-all-images-table" style="width:100%;table-layout:fixed;border-collapse:collapse;font-size:.78rem;">
       <colgroup>
-        <col style="width:90px"><col style="width:340px"><col style="width:380px"><col>
+        <col style="width:80px"><col style="width:22%"><col style="width:18%"><col><col style="width:100px">
       </colgroup>
       <thead>
         <tr style="background:var(--surface);position:sticky;top:0;">
-          <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Preview</th>
-          <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Image src</th>
-          <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Alt text</th>
-          <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Page${groups.some(g => g.pages.length > 1) ? '(s)' : ''} where used</th>
+          <th style="padding:7px 8px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Preview</th>
+          <th style="padding:7px 8px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Image src</th>
+          <th style="padding:7px 8px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Alt text</th>
+          <th style="padding:7px 8px;text-align:left;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Page${groups.some(g => g.pages.length > 1) ? '(s)' : ''} where used</th>
+          <th style="padding:7px 8px;text-align:center;font-weight:600;color:var(--text-muted);font-size:11px;border-bottom:1px solid var(--border);">Generate</th>
         </tr>
       </thead>
       <tbody>
@@ -1618,14 +1633,17 @@ function _scRenderAllImagesPanel() {
           const safeSrc = escapeHtml(g.src);
           const altHtml = _altCellHtml(first.classification, first.alt);
           const pagesHtml = g.pages.length === 1
-            ? `<a href="${escapeHtml(first.url)}" target="_blank" style="color:var(--accent);">${escapeHtml(first.url)}</a>${typeof _scOpenIcon === 'function' ? _scOpenIcon(first.url) : ''}`
-            : `<details style="margin:0;"><summary style="cursor:pointer;color:var(--text);"><b>${g.pages.length}</b> pages — <span style="color:var(--text-muted);">click to expand</span></summary>${g.pages.map(p => `<div style="font-size:.72rem;padding:3px 0;border-top:1px dashed var(--border);margin-top:4px;"><a href="${escapeHtml(p.url)}" target="_blank" style="color:var(--accent);">${escapeHtml(p.url)}</a><div style="color:var(--text-muted);margin-top:2px;">alt: ${_altCellHtml(p.classification, p.alt)}</div></div>`).join('')}</details>`;
+            ? `<a href="${escapeHtml(first.url)}" target="_blank" style="color:var(--accent);word-break:break-all;">${escapeHtml(first.url)}</a>${typeof _scOpenIcon === 'function' ? _scOpenIcon(first.url) : ''}`
+            : `<details style="margin:0;"><summary style="cursor:pointer;color:var(--text);"><b>${g.pages.length}</b> pages — <span style="color:var(--text-muted);">click to expand</span></summary>${g.pages.map(p => `<div style="font-size:.72rem;padding:3px 0;border-top:1px dashed var(--border);margin-top:4px;"><a href="${escapeHtml(p.url)}" target="_blank" style="color:var(--accent);word-break:break-all;">${escapeHtml(p.url)}</a><div style="color:var(--text-muted);margin-top:2px;">alt: ${_altCellHtml(p.classification, p.alt)}</div></div>`).join('')}</details>`;
           return `
-            <tr data-src="${safeSrc}" data-cls="${escapeHtml(first.classification || 'present')}" style="border-bottom:1px solid var(--border);">
-              <td style="text-align:center;padding:4px;"><img src="${safeSrc}" alt="" loading="lazy" style="max-width:80px;max-height:80px;border-radius:3px;border:1px solid var(--border);background:#fff;" onerror="this.style.opacity='.3';this.title='Failed to load';" /></td>
-              <td title="${safeSrc}" style="padding:6px 10px;word-break:break-all;white-space:normal;"><a href="${safeSrc}" target="_blank" style="color:var(--accent);">${safeSrc}</a></td>
-              <td title="${escapeHtml(first.alt || '')}" style="padding:6px 10px;white-space:normal;">${altHtml}</td>
-              <td style="padding:6px 10px;white-space:normal;">${pagesHtml}</td>
+            <tr data-src="${safeSrc}" data-cls="${escapeHtml(first.classification || 'present')}" style="border-bottom:1px solid var(--border);vertical-align:middle;">
+              <td style="text-align:center;padding:6px 4px;"><img src="${safeSrc}" alt="" loading="lazy" style="max-width:72px;max-height:72px;border-radius:3px;border:1px solid var(--border);background:#fff;display:block;margin:auto;" onerror="this.style.opacity='.3';this.title='Failed to load';" /></td>
+              <td title="${safeSrc}" style="padding:6px 10px;overflow:hidden;"><a href="${safeSrc}" target="_blank" style="color:var(--accent);word-break:break-all;overflow-wrap:anywhere;">${safeSrc}</a></td>
+              <td title="${escapeHtml(first.alt || '')}" style="padding:6px 10px;overflow:hidden;word-break:break-word;">${altHtml}</td>
+              <td style="padding:6px 10px;overflow:hidden;">${pagesHtml}</td>
+              <td style="padding:6px 8px;text-align:center;white-space:nowrap;">
+                ${first.classification !== 'present' ? `<button onclick="_altGenerate(this)" data-src="${safeSrc}" data-page="${escapeHtml(g.pages && g.pages[0] ? g.pages[0].url : '')}" data-cls="${escapeHtml(first.classification)}" style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">Generate</button>` : ''}
+              </td>
             </tr>`;
         }).join('')}
       </tbody>
@@ -1661,6 +1679,300 @@ function _scAllImagesFilter(want) {
       b.style.borderColor = restore.bd;
     }
   });
+}
+
+function _altGenerate(btn) {
+  let tr = btn.closest('tr');
+  if (tr && tr.classList.contains('alt-result-row')) tr = tr.previousElementSibling;
+  if (!tr) return;
+  const src = btn.dataset.src;
+  const page = btn.dataset.page || '';
+  const cls = btn.dataset.cls || 'missing';
+
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('alt-result-row')) next.remove();
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  tr.style.borderLeft = '3px solid var(--accent)';
+
+  const resultRow = document.createElement('tr');
+  resultRow.className = 'alt-result-row';
+  resultRow.dataset.cls = tr.dataset.cls;
+  resultRow.innerHTML = `<td colspan="5" style="padding:8px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+    <span style="color:var(--accent);font-size:11px;">Generating alt text…</span>
+  </td>`;
+  tr.after(resultRow);
+
+  fetch('/generate-alt', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ src, page_url: page, classification: cls })
+  })
+  .then(r => r.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate';
+    btn.style.background = '#6b7280';
+    tr.style.borderLeft = '';
+
+    if (data.error === 'image_fetch_failed') {
+      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+        <div style="font-size:11px;color:var(--bw-error);margin-bottom:6px;">Image unavailable — enter alt text manually:</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;"></textarea>
+          <button onclick="_altCopy(this)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;">Copy</button>
+        </div>
+      </td>`;
+      return;
+    }
+
+    if (data.error) {
+      const safeSrc2 = escapeHtml(src);
+      const safePage2 = escapeHtml(page);
+      const safeCls2 = escapeHtml(cls);
+      resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:var(--bw-error-bg);border-bottom:1px solid #fecaca;">
+        <span style="color:var(--bw-error);font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
+        <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+      </td>`;
+      return;
+    }
+
+    const roleColors = { informative: 'var(--accent)', functional: '#2563eb', decorative: '#6b7280', complex: '#d97706' };
+    const confColors = { high: 'var(--bw-success)', medium: '#d97706', low: 'var(--bw-error)' };
+    const roleColor = roleColors[data.role] || '#6b7280';
+    const confColor = confColors[data.confidence] || '#6b7280';
+    const warningHtml = data.warnings && data.warnings.length
+      ? `<div style="margin-top:6px;padding:4px 8px;background:var(--bw-warn-bg);border-radius:4px;font-size:10px;color:var(--bw-warn);">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
+      : '';
+
+    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:#faf5ff;border-bottom:1px solid #e9d5ff;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="background:${roleColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.role)}</span>
+        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence)} confidence</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <textarea rows="2" style="flex:1;border:1px solid #d8b4fe;border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:var(--text);">${escapeHtml(data.recommended_alt || '')}</textarea>
+        <button onclick="_altCopy(this)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
+      </div>
+      <div style="margin-top:5px;font-size:10px;color:var(--text-muted);font-style:italic;">${escapeHtml(data.rationale || '')}</div>
+      ${warningHtml}
+    </td>`;
+  })
+  .catch(err => {
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+    btn.style.background = 'var(--accent)';
+    tr.style.borderLeft = '';
+    const safeSrc2 = escapeHtml(src);
+    const safePage2 = escapeHtml(page);
+    const safeCls2 = escapeHtml(cls);
+    resultRow.innerHTML = `<td colspan="5" style="padding:10px 14px;background:var(--bw-error-bg);border-bottom:1px solid #fecaca;">
+      <span style="color:var(--bw-error);font-size:11px;">Network error — is the app running?</span>
+      <button onclick="_altGenerate(this)" data-src="${safeSrc2}" data-page="${safePage2}" data-cls="${safeCls2}" style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+    </td>`;
+  });
+}
+
+function _altCopy(btn) {
+  const textarea = btn.closest('td').querySelector('textarea');
+  if (!textarea) return;
+  const fallback = () => { textarea.select(); document.execCommand('copy'); };
+  if (!navigator.clipboard) { fallback(); return; }
+  navigator.clipboard.writeText(textarea.value)
+    .then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.background = 'var(--bw-success)';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = 'var(--accent)'; }, 1500);
+    })
+    .catch(fallback);
+}
+
+function _metaGenerate(btn) {
+  let tr = btn.closest('tr');
+  if (tr && tr.classList.contains('meta-result-row')) tr = tr.previousElementSibling;
+  if (!tr) return;
+  const url = btn.dataset.url;
+  const field = btn.dataset.field || 'meta';
+  const colCount = tr.querySelectorAll('td').length;
+
+  const next = tr.nextElementSibling;
+  if (next && next.classList.contains('meta-result-row')) next.remove();
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  tr.style.outline = '2px solid var(--accent)';
+  tr.style.outlineOffset = '-2px';
+
+  const resultRow = document.createElement('tr');
+  resultRow.className = 'meta-result-row';
+  resultRow.innerHTML = `<td colspan="${colCount}" style="padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);">
+    <span style="color:var(--accent);font-size:11px;">Generating…</span>
+  </td>`;
+  tr.after(resultRow);
+
+  fetch('/generate-meta', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page_url: url,
+      field,
+      current_title: btn.dataset.title || '',
+      current_meta: btn.dataset.meta || '',
+      h1: btn.dataset.h1 || ''
+    })
+  })
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate';
+    btn.style.background = '#6b7280';
+    tr.style.outline = '';
+
+    if (data.error) {
+      const safeU = escapeHtml(url);
+      const safeField = escapeHtml(field);
+      resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:var(--bw-error-bg);border-bottom:1px solid var(--border);">
+        <span style="color:var(--bw-error);font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
+        <button onclick="_metaGenerate(this)" data-url="${safeU}" data-field="${safeField}"
+          data-title="${escapeHtml(btn.dataset.title||'')}" data-meta="${escapeHtml(btn.dataset.meta||'')}" data-h1="${escapeHtml(btn.dataset.h1||'')}"
+          style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+      </td>`;
+      return;
+    }
+
+    const confColors = { high: 'var(--bw-success)', medium: '#d97706', low: 'var(--bw-error)' };
+    const confColor = confColors[data.confidence] || 'var(--text-muted)';
+    const charCount = parseInt(data.char_count, 10) || (data.recommended || '').length;
+    const limit = field === 'meta' ? 160 : 65;
+    const minLen = field === 'meta' ? 70 : 30;
+    const charColor = charCount > limit ? 'var(--bw-error)' : charCount < minLen ? 'var(--bw-warn-border)' : 'var(--bw-success)';
+    const warningHtml = data.warnings && data.warnings.length
+      ? `<div style="margin-top:6px;padding:4px 8px;background:var(--bw-warn-bg);border-radius:4px;font-size:10px;color:var(--bw-warn);">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
+      : '';
+
+    resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:var(--surface2);border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence || '')} confidence</span>
+        <span style="color:${charColor};font-size:10px;font-weight:700;">${charCount} chars</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <textarea rows="${field === 'meta' ? 3 : 2}" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:var(--text);background:var(--surface);">${escapeHtml(data.recommended || '')}</textarea>
+        <button onclick="_metaCopy(this)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
+      </div>
+      <div style="margin-top:5px;font-size:10px;color:var(--text-muted);font-style:italic;">${escapeHtml(data.rationale || '')}</div>
+      ${warningHtml}
+    </td>`;
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+    btn.style.background = 'var(--accent)';
+    tr.style.outline = '';
+    const safeU = escapeHtml(url);
+    const safeField = escapeHtml(field);
+    resultRow.innerHTML = `<td colspan="${colCount}" style="padding:10px 14px;background:var(--bw-error-bg);border-bottom:1px solid var(--border);">
+      <span style="color:var(--bw-error);font-size:11px;">Network error — is the app running?</span>
+      <button onclick="_metaGenerate(this)" data-url="${safeU}" data-field="${safeField}"
+        data-title="${escapeHtml(btn.dataset.title||'')}" data-meta="${escapeHtml(btn.dataset.meta||'')}" data-h1="${escapeHtml(btn.dataset.h1||'')}"
+        style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>
+    </td>`;
+  });
+}
+
+function _metaGenerateDock(btn) {
+  const issueRow = btn.closest('.issue-row');
+  const url = btn.dataset.url;
+  const field = btn.dataset.field || 'meta';
+
+  const existing = issueRow.nextElementSibling;
+  if (existing && existing.classList.contains('meta-dock-result')) existing.remove();
+
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const resultDiv = document.createElement('div');
+  resultDiv.className = 'meta-dock-result';
+  resultDiv.style.cssText = 'padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);';
+  resultDiv.innerHTML = `<span style="color:var(--accent);font-size:11px;">Generating…</span>`;
+  issueRow.after(resultDiv);
+
+  fetch('/generate-meta', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      page_url: url,
+      field,
+      current_title: btn.dataset.title || '',
+      current_meta: btn.dataset.meta || '',
+      h1: btn.dataset.h1 || ''
+    })
+  })
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Regenerate';
+    btn.style.background = '#6b7280';
+
+    if (data.error) {
+      const safeU = escapeHtml(url);
+      const safeField = escapeHtml(field);
+      resultDiv.innerHTML = `<span style="color:var(--bw-error);font-size:11px;">Error: ${escapeHtml(data.message || data.error)}</span>
+        <button onclick="_metaGenerateDock(this)" data-url="${safeU}" data-field="${safeField}"
+          data-title="${escapeHtml(btn.dataset.title||'')}" data-meta="${escapeHtml(btn.dataset.meta||'')}" data-h1="${escapeHtml(btn.dataset.h1||'')}"
+          style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>`;
+      return;
+    }
+
+    const confColors = { high: 'var(--bw-success)', medium: '#d97706', low: 'var(--bw-error)' };
+    const confColor = confColors[data.confidence] || 'var(--text-muted)';
+    const charCount = parseInt(data.char_count, 10) || (data.recommended || '').length;
+    const limit = field === 'meta' ? 160 : 65;
+    const minLen = field === 'meta' ? 70 : 30;
+    const charColor = charCount > limit ? 'var(--bw-error)' : charCount < minLen ? 'var(--bw-warn-border)' : 'var(--bw-success)';
+    const warningHtml = data.warnings && data.warnings.length
+      ? `<div style="margin-top:6px;padding:4px 8px;background:var(--bw-warn-bg);border-radius:4px;font-size:10px;color:var(--bw-warn);">⚠ ${data.warnings.map(w => escapeHtml(w)).join(' · ')}</div>`
+      : '';
+
+    resultDiv.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <span style="background:${confColor};color:#fff;border-radius:3px;padding:2px 7px;font-size:10px;font-weight:600;">${escapeHtml(data.confidence || '')} confidence</span>
+        <span style="color:${charColor};font-size:10px;font-weight:700;">${charCount} chars</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <textarea rows="${field === 'meta' ? 3 : 2}" style="flex:1;border:1px solid var(--border);border-radius:4px;padding:5px 8px;font-size:12px;resize:vertical;color:var(--text);background:var(--surface);">${escapeHtml(data.recommended || '')}</textarea>
+        <button onclick="_metaCopy(this)" style="background:var(--accent);color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:11px;cursor:pointer;font-weight:600;flex-shrink:0;margin-top:2px;">Copy</button>
+      </div>
+      <div style="margin-top:5px;font-size:10px;color:var(--text-muted);font-style:italic;">${escapeHtml(data.rationale || '')}</div>
+      ${warningHtml}`;
+  })
+  .catch(() => {
+    btn.disabled = false;
+    btn.textContent = 'Generate';
+    btn.style.background = 'var(--accent)';
+    const safeU = escapeHtml(url);
+    const safeField = escapeHtml(field);
+    resultDiv.innerHTML = `<span style="color:var(--bw-error);font-size:11px;">Network error — is the app running?</span>
+      <button onclick="_metaGenerateDock(this)" data-url="${safeU}" data-field="${safeField}"
+        data-title="${escapeHtml(btn.dataset.title||'')}" data-meta="${escapeHtml(btn.dataset.meta||'')}" data-h1="${escapeHtml(btn.dataset.h1||'')}"
+        style="margin-left:8px;background:var(--accent);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600;">Retry</button>`;
+  });
+}
+
+function _metaCopy(btn) {
+  const textarea = btn.closest('td, div').querySelector('textarea');
+  if (!textarea) return;
+  const fallback = () => { textarea.select(); document.execCommand('copy'); };
+  if (!navigator.clipboard) { fallback(); return; }
+  navigator.clipboard.writeText(textarea.value)
+    .then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied!';
+      btn.style.background = 'var(--bw-success)';
+      setTimeout(() => { btn.textContent = orig; btn.style.background = 'var(--accent)'; }, 1500);
+    })
+    .catch(fallback);
 }
 
 // =============================================================================
@@ -1913,19 +2225,23 @@ function _scRenderAllValuesPanel(cat) {
     </div>`;
 
   const hasChars = !!spec.limit;
-  const valueColW = (cat === '__all_metas') ? ' style="width:780px"' : ' style="width:680px"';
+  const hasAI = (cat === '__all_metas' || cat === '__all_titles');
+  const aiField = cat === '__all_metas' ? 'meta' : 'title';
+  const valueColW = (cat === '__all_metas') ? ' style="width:680px"' : ' style="width:580px"';
   const body = `
     <table class="crawler-grid" data-resize-key="all-values-${cat}" style="font-size:.78rem;">
       <colgroup>
-        <col style="width:520px">
+        <col style="width:460px">
         <col${valueColW}>
         ${hasChars ? '<col style="width:80px">' : ''}
+        ${hasAI ? '<col style="width:110px">' : ''}
       </colgroup>
       <thead>
         <tr>
           <th style="position:relative;"><span class="th-label">URL</span><span class="th-resize" data-col-idx="0"></span></th>
           <th style="position:relative;"><span class="th-label">${escapeHtml(spec.label)}</span><span class="th-resize" data-col-idx="1"></span></th>
           ${hasChars ? '<th style="position:relative;"><span class="th-label th-center">Chars</span><span class="th-resize" data-col-idx="2"></span></th>' : ''}
+          ${hasAI ? '<th style="position:relative;"><span class="th-label">Generate</span></th>' : ''}
         </tr>
       </thead>
       <tbody>
@@ -1938,11 +2254,21 @@ function _scRenderAllValuesPanel(cat) {
           const safeU = escapeHtml(u);
           const safeV = v ? escapeHtml(v) : `<span style="color:var(--bw-error);font-style:italic;">— ${escapeHtml(spec.emptyClass)}</span>`;
           const cellStyle = over ? 'color:var(--bw-error);' : (under ? 'color:var(--bw-warn-border);' : '');
+          const genBtn = hasAI ? `<td style="text-align:center;padding:6px 8px;">
+            <button onclick="_metaGenerate(this)"
+              data-url="${safeU}"
+              data-field="${aiField}"
+              data-title="${escapeHtml(r.title || '')}"
+              data-meta="${escapeHtml(r.meta_description || '')}"
+              data-h1="${escapeHtml((r.h1_list && r.h1_list[0]) || r.h1 || '')}"
+              style="background:var(--accent);color:#fff;border:none;border-radius:5px;padding:5px 10px;font-size:11px;cursor:pointer;font-weight:600;white-space:nowrap;">Generate</button>
+          </td>` : '';
           return `
             <tr data-url="${safeU}" data-value="${escapeHtml((v || '').toLowerCase())}">
               <td title="${safeU}"><a href="${safeU}" target="_blank" style="color:var(--accent);">${safeU}</a></td>
               <td title="${escapeHtml(v)}" style="${cellStyle}">${safeV}</td>
               ${hasChars ? `<td style="text-align:right;${cellStyle}">${v ? n : ''}</td>` : ''}
+              ${genBtn}
             </tr>`;
         }).join('')}
       </tbody>
