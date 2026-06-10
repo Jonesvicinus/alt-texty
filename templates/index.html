@@ -19,14 +19,29 @@
     </div>
     <div class="sub">Fast concurrent crawl · CMS-aware · severity-tagged issues</div>
     <span id="build-version" title="Installed build. Click to check for updates." style="font-size:11px;color:var(--text-muted);font-family:'IBM Plex Mono','SF Mono','Menlo',monospace;cursor:pointer;padding:3px 8px;border-radius:4px;" onclick="versionBadgeClick()">v {{ build_sha }}</span>
-    <button id="topbar-export-sitemap" type="button" onclick="exportCrawlerSitemap()" title="Export an XML sitemap of all 200-status indexable pages found in this crawl" class="topbar-btn" style="display:none;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Sitemap.xml
-    </button>
-    <button id="topbar-export-xlsx" type="button" onclick="exportCrawlerXlsx()" title="Export the entire crawl as a multi-sheet .xlsx workbook (All Pages + Issues + per-tab data sheets)" class="topbar-btn" style="display:none;">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      .xlsx
-    </button>
+    <div class="topbar-actions">
+      <div class="topbar-btn-group">
+        <button type="button" onclick="openStrategyModal()" title="Open keyword strategy editor for the current site" class="topbar-btn" style="border-radius:6px 0 0 6px;border-right:1px solid rgba(255,255,255,0.15);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          Keywords
+        </button>
+        <button type="button" onclick="toggleStrategyDropdown(event)" title="Saved strategies" class="topbar-btn" style="padding:5px 8px;border-radius:0 6px 6px 0;" aria-label="Saved strategies">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div id="strategy-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,0.15);min-width:170px;z-index:500;overflow:hidden;">
+          <button type="button" onclick="openStrategyModal();closeStrategyDropdown()" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:600;cursor:pointer;color:var(--text);">Current site</button>
+          <button type="button" onclick="openSavedStrategies();closeStrategyDropdown()" style="display:block;width:100%;text-align:left;padding:9px 14px;border:none;background:none;font-size:12px;font-family:'Montserrat',sans-serif;font-weight:600;cursor:pointer;color:var(--text);border-top:1px solid var(--border);">All saved</button>
+        </div>
+      </div>
+      <button id="topbar-export-sitemap" type="button" onclick="exportCrawlerSitemap()" title="Export an XML sitemap of all 200-status indexable pages found in this crawl" class="topbar-btn" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Sitemap.xml
+      </button>
+      <button id="topbar-export-xlsx" type="button" onclick="exportCrawlerXlsx()" title="Export the entire crawl as a multi-sheet .xlsx workbook (All Pages + Issues + per-tab data sheets)" class="topbar-btn" style="display:none;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        .xlsx
+      </button>
+    </div>
   </header>
   <script>
     window.addEventListener('DOMContentLoaded', function() {
@@ -52,11 +67,11 @@
         window._scBuildLocal = local;
         window._scBuildRemote = remote;
         if (remote && remote !== local) {
-          badge.style.color = '#fff';
-          badge.style.background = '#D97706';
-          badge.style.border = '1px solid #D97706';
+          badge.style.color = 'var(--surface)';
+          badge.style.background = 'var(--bw-warn-border)';
+          badge.style.border = '1px solid var(--bw-warn-border)';
           badge.style.fontWeight = '700';
-          badge.title = `Update available — running ${local}, latest is ${remote}. Click to update.`;
+          badge.title = `Update available: running ${local}, latest is ${remote}. Click to update.`;
           badge.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Update now`;
         }
       })();
@@ -79,13 +94,13 @@
         badge.innerHTML = txt;
         if (color) { badge.style.background = color; badge.style.borderColor = color; }
       };
-      setBadge('Pulling…', '#007296');
+      setBadge('Pulling…', 'var(--bw-brand-600)');
       try {
         const r = await fetch('/update', { method: 'POST' });
         const d = await r.json();
         if (!d.ok) { alert('Update failed:\n\n' + d.error); setBadge('Update now', '#D97706'); return; }
         if (!d.changed) { alert('Already up to date.'); setBadge('v ' + local); badge.style.background = ''; badge.style.color = 'rgba(255,255,255,0.45)'; return; }
-        setBadge('Restarting…', '#007296');
+        setBadge('Restarting…', 'var(--bw-brand-600)');
         try { await Promise.race([fetch('/restart', { method: 'POST' }), new Promise(r => setTimeout(r, 1500))]); } catch {}
         const start = Date.now();
         while (Date.now() - start < 30000) {
@@ -95,7 +110,7 @@
             if (vr.ok) {
               const vd = await vr.json();
               if (vd.sha && vd.sha === d.after) {
-                setBadge('Updated ✓', '#108043');
+                setBadge('Updated ✓', 'var(--bw-success)');
                 localStorage.removeItem('sc_remote_sha_v2');
                 await new Promise(r => setTimeout(r, 600));
                 location.reload();
@@ -105,15 +120,16 @@
           } catch {}
         }
         alert('Restart timed out. Check the app manually.');
-        setBadge('Update now', '#D97706');
+        setBadge('Update now', 'var(--bw-warn-border)');
       } catch (e) {
         alert('Update request failed: ' + e.message);
-        setBadge('Update now', '#D97706');
+        setBadge('Update now', 'var(--bw-warn-border)');
       }
     }
   </script>
 
   <main class="wrap">
+    <h1 class="sr-only">Bowst SEO Crawler</h1>
     <aside class="sidebar">
       <label>Website URL
         <input type="url" id="crawler-url" placeholder="https://example.com" />
@@ -172,7 +188,7 @@
         <label>Live robots.txt
           <span style="display:flex;align-items:center;gap:6px;">
             <small id="crawler-robots-status" style="flex:1;"></small>
-            <button type="button" id="crawler-robots-refetch" onclick="crawlerFetchRobots()" title="Re-fetch robots.txt" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:13px;line-height:1;">↻</button>
+            <button type="button" id="crawler-robots-refetch" onclick="crawlerFetchRobots()" title="Re-fetch robots.txt" aria-label="Refresh robots.txt" style="background:none;border:none;cursor:pointer;padding:2px 4px;font-size:13px;line-height:1;">↻</button>
           </span>
           <textarea id="crawler-robots-preview" rows="5" readonly placeholder="Enter a URL above and robots.txt will load here."></textarea>
         </label>
@@ -209,92 +225,92 @@
 
     <!-- Issues sidebar (middle column, shown after crawl starts) -->
     <aside class="issues-sidebar" id="issues-sidebar" style="display:none">
-      <div class="ci-cat active" data-cat="__summary" onclick="selectCategory('__summary')" title="What needs fixing — grouped by severity, click any issue to drill in">
+      <button type="button" class="ci-cat active" data-cat="__summary" onclick="selectCategory('__summary')" title="What needs fixing — grouped by severity, click any issue to drill in">
         <span style="display:inline-flex;align-items:center;gap:6px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="6"/><rect x="12" y="9" width="3" height="10"/><rect x="17" y="5" width="3" height="14"/></svg>
           Summary
         </span>
-      </div>
+      </button>
 
       <div class="sev-grid">
-        <div class="sev-cell" data-cat="__err" onclick="selectCategory('__err')" title="Must-fix">
+        <button type="button" class="sev-cell" data-cat="__err" onclick="selectCategory('__err')" title="Must-fix">
           <div class="sev-lbl err">Errors</div><div class="sev-num err" data-count="__err">0</div>
-        </div>
-        <div class="sev-cell" data-cat="__warn" onclick="selectCategory('__warn')" title="Should-fix">
+        </button>
+        <button type="button" class="sev-cell" data-cat="__warn" onclick="selectCategory('__warn')" title="Should-fix">
           <div class="sev-lbl warn">Warnings</div><div class="sev-num warn" data-count="__warn">0</div>
-        </div>
-        <div class="sev-cell" data-cat="__info" onclick="selectCategory('__info')" title="Optional">
+        </button>
+        <button type="button" class="sev-cell" data-cat="__info" onclick="selectCategory('__info')" title="Optional">
           <div class="sev-lbl info">Info</div><div class="sev-num info" data-count="__info">0</div>
-        </div>
+        </button>
       </div>
 
-      <div class="ci-cat" data-cat="all" onclick="selectCategory('all')">
+      <button type="button" class="ci-cat" data-cat="all" onclick="selectCategory('all')">
         <span>All Pages</span><span class="ci-count" data-count="all">0</span>
-      </div>
+      </button>
 
       <div class="cat-label">Issues</div>
-      <div class="ci-cat" data-cat="Missing meta description" onclick="selectCategory('Missing meta description')"><span>Missing Meta Desc</span><span class="ci-count err" data-count="Missing meta description">0</span></div>
-      <div class="ci-cat" data-cat="Meta desc too long" onclick="selectCategory('Meta desc too long')"><span>Meta Too Long</span><span class="ci-count warn" data-count="Meta desc too long">0</span></div>
-      <div class="ci-cat" data-cat="Meta desc too short" onclick="selectCategory('Meta desc too short')"><span>Meta Too Short</span><span class="ci-count warn" data-count="Meta desc too short">0</span></div>
-      <div class="ci-cat" data-cat="Missing title" onclick="selectCategory('Missing title')"><span>Missing Title</span><span class="ci-count err" data-count="Missing title">0</span></div>
-      <div class="ci-cat" data-cat="Title too long" onclick="selectCategory('Title too long')"><span>Title Too Long</span><span class="ci-count warn" data-count="Title too long">0</span></div>
-      <div class="ci-cat" data-cat="Title too short" onclick="selectCategory('Title too short')"><span>Title Too Short</span><span class="ci-count warn" data-count="Title too short">0</span></div>
-      <div class="ci-cat" data-cat="Missing H1" onclick="selectCategory('Missing H1')"><span>Missing H1</span><span class="ci-count err" data-count="Missing H1">0</span></div>
-      <div class="ci-cat" data-cat="Multiple H1s" onclick="selectCategory('Multiple H1s')"><span>Multiple H1s</span><span class="ci-count warn" data-count="Multiple H1s">0</span></div>
-      <div class="ci-cat" data-cat="H1 same as title" onclick="selectCategory('H1 same as title')"><span>H1 Same as Title</span><span class="ci-count warn" data-count="H1 same as title">0</span></div>
-      <div class="ci-cat" data-cat="Missing canonical" onclick="selectCategory('Missing canonical')"><span>Missing Canonical</span><span class="ci-count err" data-count="Missing canonical">0</span></div>
-      <div class="ci-cat" data-cat="imgs missing alt" onclick="selectCategory('imgs missing alt')"><span>Images Missing Alt</span><span class="ci-count warn" data-count="imgs missing alt">0</span></div>
-      <div class="ci-cat" data-cat="__all_images" onclick="selectCategory('__all_images')"><span title="Every image found across the crawl, grouped by src — filter by alt-text status">All Images</span><span class="ci-count" data-count="__all_images">0</span></div>
-      <div class="ci-cat" data-cat="__external_links" onclick="selectCategory('__external_links')"><span title="Every external (off-domain) link with rel + target. Filter by follow / nofollow / same-window / new-tab. Risky = follow + same-window (leaks SEO equity AND loses the visitor).">External Links</span><span class="ci-count" data-count="__external_links">0</span></div>
-      <div class="ci-cat" data-cat="__js_diff" id="js-diff-cat" style="display:none;" onclick="selectCategory('__js_diff')"><span title="Pages whose Playwright-rendered HTML differs from the raw (no-JS) HTML — what AI crawlers without JS execution see">JS vs non-JS Diff</span><span class="ci-count" data-count="__js_diff">0</span></div>
-      <div class="ci-cat" data-cat="No schema" onclick="selectCategory('No schema')"><span>No Schema Markup</span><span class="ci-count warn" data-count="No schema">0</span></div>
-      <div class="ci-cat" data-cat="__schema_by_page" onclick="selectCategory('__schema_by_page')"><span title="Every crawled page with the schema types it emits">Schema by Page</span><span class="ci-count" data-count="__schema_by_page">0</span></div>
-      <div class="ci-cat" data-cat="Thin content" onclick="selectCategory('Thin content')"><span>Thin Content</span><span class="ci-count warn" data-count="Thin content">0</span></div>
-      <div class="ci-cat" data-cat="Slow" onclick="selectCategory('Slow')"><span>Slow Response</span><span class="ci-count warn" data-count="Slow">0</span></div>
+      <button type="button" class="ci-cat" data-cat="Missing meta description" onclick="selectCategory('Missing meta description')"><span>Missing Meta Desc</span><span class="ci-count err" data-count="Missing meta description">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Meta desc too long" onclick="selectCategory('Meta desc too long')"><span>Meta Too Long</span><span class="ci-count warn" data-count="Meta desc too long">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Meta desc too short" onclick="selectCategory('Meta desc too short')"><span>Meta Too Short</span><span class="ci-count warn" data-count="Meta desc too short">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing title" onclick="selectCategory('Missing title')"><span>Missing Title</span><span class="ci-count err" data-count="Missing title">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Title too long" onclick="selectCategory('Title too long')"><span>Title Too Long</span><span class="ci-count warn" data-count="Title too long">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Title too short" onclick="selectCategory('Title too short')"><span>Title Too Short</span><span class="ci-count warn" data-count="Title too short">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing H1" onclick="selectCategory('Missing H1')"><span>Missing H1</span><span class="ci-count err" data-count="Missing H1">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Multiple H1s" onclick="selectCategory('Multiple H1s')"><span>Multiple H1s</span><span class="ci-count warn" data-count="Multiple H1s">0</span></button>
+      <button type="button" class="ci-cat" data-cat="H1 same as title" onclick="selectCategory('H1 same as title')"><span>H1 Same as Title</span><span class="ci-count warn" data-count="H1 same as title">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing canonical" onclick="selectCategory('Missing canonical')"><span>Missing Canonical</span><span class="ci-count err" data-count="Missing canonical">0</span></button>
+      <button type="button" class="ci-cat" data-cat="imgs missing alt" onclick="selectCategory('imgs missing alt')"><span>Images Missing Alt</span><span class="ci-count warn" data-count="imgs missing alt">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__all_images" onclick="selectCategory('__all_images')"><span title="Every image found across the crawl, grouped by src — filter by alt-text status">All Images</span><span class="ci-count" data-count="__all_images">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__external_links" onclick="selectCategory('__external_links')"><span title="Every external (off-domain) link with rel + target. Filter by follow / nofollow / same-window / new-tab. Risky = follow + same-window (leaks SEO equity AND loses the visitor).">External Links</span><span class="ci-count" data-count="__external_links">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__js_diff" id="js-diff-cat" style="display:none;" onclick="selectCategory('__js_diff')"><span title="Pages whose Playwright-rendered HTML differs from the raw (no-JS) HTML — what AI crawlers without JS execution see">JS vs non-JS Diff</span><span class="ci-count" data-count="__js_diff">0</span></button>
+      <button type="button" class="ci-cat" data-cat="No schema" onclick="selectCategory('No schema')"><span>No Schema Markup</span><span class="ci-count warn" data-count="No schema">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__schema_by_page" onclick="selectCategory('__schema_by_page')"><span title="Every crawled page with the schema types it emits">Schema by Page</span><span class="ci-count" data-count="__schema_by_page">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Thin content" onclick="selectCategory('Thin content')"><span>Thin Content</span><span class="ci-count warn" data-count="Thin content">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Slow" onclick="selectCategory('Slow')"><span>Slow Response</span><span class="ci-count warn" data-count="Slow">0</span></button>
 
       <div class="cat-label">Bulk Reports</div>
-      <div class="ci-cat" data-cat="__all_titles"     onclick="selectCategory('__all_titles')"><span title="Every crawled page with its title tag — sortable, copy/export-ready">All Titles</span><span class="ci-count" data-count="__all_titles">0</span></div>
-      <div class="ci-cat" data-cat="__all_metas"      onclick="selectCategory('__all_metas')"><span title="Every crawled page with its meta description">All Meta Descriptions</span><span class="ci-count" data-count="__all_metas">0</span></div>
-      <div class="ci-cat" data-cat="__all_h1s"        onclick="selectCategory('__all_h1s')"><span title="Every crawled page with its primary H1">All H1s</span><span class="ci-count" data-count="__all_h1s">0</span></div>
-      <div class="ci-cat" data-cat="__all_canonicals" onclick="selectCategory('__all_canonicals')"><span title="Every crawled page with its rel=canonical target">All Canonicals</span><span class="ci-count" data-count="__all_canonicals">0</span></div>
-      <div class="ci-cat" data-cat="__dup_titles"     onclick="selectCategory('__dup_titles')"><span title="Groups of pages sharing an identical title">Duplicate Titles</span><span class="ci-count warn" data-count="__dup_titles">0</span></div>
-      <div class="ci-cat" data-cat="__dup_metas"      onclick="selectCategory('__dup_metas')"><span title="Groups of pages sharing an identical meta description">Duplicate Meta Descriptions</span><span class="ci-count warn" data-count="__dup_metas">0</span></div>
-      <div class="ci-cat" data-cat="__dup_h1s"        onclick="selectCategory('__dup_h1s')"><span title="Groups of pages sharing an identical H1">Duplicate H1s</span><span class="ci-count warn" data-count="__dup_h1s">0</span></div>
-      <div class="ci-cat" data-cat="__dup_bodies"     onclick="selectCategory('__dup_bodies')"><span title="Groups of pages whose body content (stripped) hashes identically">Duplicate Body Content</span><span class="ci-count warn" data-count="__dup_bodies">0</span></div>
+      <button type="button" class="ci-cat" data-cat="__all_titles"     onclick="selectCategory('__all_titles')"><span title="Every crawled page with its title tag — sortable, copy/export-ready">All Titles</span><span class="ci-count" data-count="__all_titles">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__all_metas"      onclick="selectCategory('__all_metas')"><span title="Every crawled page with its meta description">All Meta Descriptions</span><span class="ci-count" data-count="__all_metas">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__all_h1s"        onclick="selectCategory('__all_h1s')"><span title="Every crawled page with its primary H1">All H1s</span><span class="ci-count" data-count="__all_h1s">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__all_canonicals" onclick="selectCategory('__all_canonicals')"><span title="Every crawled page with its rel=canonical target">All Canonicals</span><span class="ci-count" data-count="__all_canonicals">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__dup_titles"     onclick="selectCategory('__dup_titles')"><span title="Groups of pages sharing an identical title">Duplicate Titles</span><span class="ci-count warn" data-count="__dup_titles">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__dup_metas"      onclick="selectCategory('__dup_metas')"><span title="Groups of pages sharing an identical meta description">Duplicate Meta Descriptions</span><span class="ci-count warn" data-count="__dup_metas">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__dup_h1s"        onclick="selectCategory('__dup_h1s')"><span title="Groups of pages sharing an identical H1">Duplicate H1s</span><span class="ci-count warn" data-count="__dup_h1s">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__dup_bodies"     onclick="selectCategory('__dup_bodies')"><span title="Groups of pages whose body content (stripped) hashes identically">Duplicate Body Content</span><span class="ci-count warn" data-count="__dup_bodies">0</span></button>
 
       <div class="cat-label">Redirects & Status</div>
-      <div class="ci-cat" data-cat="Redirect" onclick="selectCategory('Redirect')"><span>Redirects</span><span class="ci-count warn" data-count="Redirect">0</span></div>
-      <div class="ci-cat" data-cat="__redir_chains" onclick="selectCategory('__redir_chains')"><span title="Pages reached via 2+ redirect hops — every hop wastes crawl budget and link equity">Redirect Chains</span><span class="ci-count warn" data-count="__redir_chains">0</span></div>
-      <div class="ci-cat" data-cat="HTTP" onclick="selectCategory('HTTP')"><span>HTTP Errors (4xx/5xx)</span><span class="ci-count err" data-count="HTTP">0</span></div>
-      <div class="ci-cat" data-cat="__response_codes" onclick="selectCategory('__response_codes')"><span title="Status code distribution across the crawl (2xx / 3xx / 4xx / 5xx breakdown)">Response Codes</span><span class="ci-count" data-count="__response_codes">0</span></div>
-      <div class="ci-cat" data-cat="noindex" onclick="selectCategory('noindex')"><span>Noindex Pages</span><span class="ci-count warn" data-count="noindex">0</span></div>
-      <div class="ci-cat" data-cat="Canonicalised" onclick="selectCategory('Canonicalised')"><span>Canonicalised</span><span class="ci-count warn" data-count="Canonicalised">0</span></div>
-      <div class="ci-cat" data-cat="__deep" onclick="selectCategory('__deep')"><span title="Pages 4+ clicks from homepage — usually under-linked and hard for crawlers + users to reach">Deep Pages (4+ clicks)</span><span class="ci-count warn" data-count="__deep">0</span></div>
-      <div class="ci-cat" data-cat="__hreflang" id="hreflang-cat" onclick="selectCategory('__hreflang')"><span title="Hreflang implementation: every alternate-language URL declared, plus validation errors (missing return tags, conflicts, invalid codes)">Hreflang</span><span class="ci-count" data-count="__hreflang">0</span></div>
+      <button type="button" class="ci-cat" data-cat="Redirect" onclick="selectCategory('Redirect')"><span>Redirects</span><span class="ci-count warn" data-count="Redirect">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__redir_chains" onclick="selectCategory('__redir_chains')"><span title="Pages reached via 2+ redirect hops — every hop wastes crawl budget and link equity">Redirect Chains</span><span class="ci-count warn" data-count="__redir_chains">0</span></button>
+      <button type="button" class="ci-cat" data-cat="HTTP" onclick="selectCategory('HTTP')"><span>HTTP Errors (4xx/5xx)</span><span class="ci-count err" data-count="HTTP">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__response_codes" onclick="selectCategory('__response_codes')"><span title="Status code distribution across the crawl (2xx / 3xx / 4xx / 5xx breakdown)">Response Codes</span><span class="ci-count" data-count="__response_codes">0</span></button>
+      <button type="button" class="ci-cat" data-cat="noindex" onclick="selectCategory('noindex')"><span>Noindex Pages</span><span class="ci-count warn" data-count="noindex">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Canonicalised" onclick="selectCategory('Canonicalised')"><span>Canonicalised</span><span class="ci-count warn" data-count="Canonicalised">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__deep" onclick="selectCategory('__deep')"><span title="Pages 4+ clicks from homepage — usually under-linked and hard for crawlers + users to reach">Deep Pages (4+ clicks)</span><span class="ci-count warn" data-count="__deep">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__hreflang" id="hreflang-cat" onclick="selectCategory('__hreflang')"><span title="Hreflang implementation: every alternate-language URL declared, plus validation errors (missing return tags, conflicts, invalid codes)">Hreflang</span><span class="ci-count" data-count="__hreflang">0</span></button>
 
       <div class="cat-label">Social & Security</div>
-      <div class="ci-cat" data-cat="Missing Open Graph" onclick="selectCategory('Missing Open Graph')"><span>Missing Open Graph</span><span class="ci-count warn" data-count="Missing Open Graph">0</span></div>
-      <div class="ci-cat" data-cat="Missing og:image" onclick="selectCategory('Missing og:image')"><span>Missing og:image</span><span class="ci-count warn" data-count="Missing og:image">0</span></div>
-      <div class="ci-cat" data-cat="Missing Twitter Card" onclick="selectCategory('Missing Twitter Card')"><span>Missing Twitter Card</span><span class="ci-count" data-count="Missing Twitter Card">0</span></div>
-      <div class="ci-cat" data-cat="Missing viewport" onclick="selectCategory('Missing viewport')"><span>Missing Viewport</span><span class="ci-count warn" data-count="Missing viewport">0</span></div>
-      <div class="ci-cat" data-cat="Mixed content" onclick="selectCategory('Mixed content')"><span>Mixed Content</span><span class="ci-count err" data-count="Mixed content">0</span></div>
-      <div class="ci-cat" data-cat="URL:" onclick="selectCategory('URL:')"><span>URL Hygiene</span><span class="ci-count warn" data-count="URL:">0</span></div>
+      <button type="button" class="ci-cat" data-cat="Missing Open Graph" onclick="selectCategory('Missing Open Graph')"><span>Missing Open Graph</span><span class="ci-count warn" data-count="Missing Open Graph">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing og:image" onclick="selectCategory('Missing og:image')"><span>Missing og:image</span><span class="ci-count warn" data-count="Missing og:image">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing Twitter Card" onclick="selectCategory('Missing Twitter Card')"><span>Missing Twitter Card</span><span class="ci-count" data-count="Missing Twitter Card">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Missing viewport" onclick="selectCategory('Missing viewport')"><span>Missing Viewport</span><span class="ci-count warn" data-count="Missing viewport">0</span></button>
+      <button type="button" class="ci-cat" data-cat="Mixed content" onclick="selectCategory('Mixed content')"><span>Mixed Content</span><span class="ci-count err" data-count="Mixed content">0</span></button>
+      <button type="button" class="ci-cat" data-cat="URL:" onclick="selectCategory('URL:')"><span>URL Hygiene</span><span class="ci-count warn" data-count="URL:">0</span></button>
 
       <div class="cat-label">Sitemap analysis</div>
       <div id="sitemap-status" class="sitemap-status" style="display:none;"></div>
-      <div class="ci-cat" data-cat="__sm_missing"    onclick="selectCategory('__sm_missing')"    id="sm-cat-missing"    style="display:none;"><span title="Indexable, 200, crawled — but missing from sitemap">Missing from sitemap</span><span class="ci-count err" data-count="__sm_missing">0</span></div>
-      <div class="ci-cat" data-cat="__sm_orphan"     onclick="selectCategory('__sm_orphan')"     id="sm-cat-orphan"     style="display:none;"><span title="In sitemap, no inbound internal links">Orphan in sitemap</span><span class="ci-count warn" data-count="__sm_orphan">0</span></div>
-      <div class="ci-cat" data-cat="__sm_only"       onclick="selectCategory('__sm_only')"       id="sm-cat-only"       style="display:none;"><span title="In sitemap but no internal links point to them — Google sees them, internal navigation doesn't">Orphan Pages — no internal links</span><span class="ci-count warn" data-count="__sm_only">0</span></div>
-      <div class="ci-cat" data-cat="__sm_noindex"    onclick="selectCategory('__sm_noindex')"    id="sm-cat-noindex"    style="display:none;"><span title="In sitemap but noindex">Non-indexable in sitemap</span><span class="ci-count warn" data-count="__sm_noindex">0</span></div>
-      <div class="ci-cat" data-cat="__sm_non200"     onclick="selectCategory('__sm_non200')"     id="sm-cat-non200"     style="display:none;"><span title="In sitemap but 4xx/5xx">Non-200 in sitemap</span><span class="ci-count err" data-count="__sm_non200">0</span></div>
-      <div class="ci-cat" data-cat="__sm_redirects"  onclick="selectCategory('__sm_redirects')"  id="sm-cat-redirects"  style="display:none;"><span title="In sitemap but redirects">Redirects in sitemap</span><span class="ci-count warn" data-count="__sm_redirects">0</span></div>
-      <div class="ci-cat" data-cat="__sm_pagination" onclick="selectCategory('__sm_pagination')" id="sm-cat-pagination" style="display:none;"><span title="Pagination URLs shouldn't be in sitemap">Pagination in sitemap</span><span class="ci-count warn" data-count="__sm_pagination">0</span></div>
+      <button type="button" class="ci-cat" data-cat="__sm_missing"    onclick="selectCategory('__sm_missing')"    id="sm-cat-missing"    style="display:none;"><span title="Indexable, 200, crawled — but missing from sitemap">Missing from sitemap</span><span class="ci-count err" data-count="__sm_missing">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_orphan"     onclick="selectCategory('__sm_orphan')"     id="sm-cat-orphan"     style="display:none;"><span title="In sitemap, no inbound internal links">Orphan in sitemap</span><span class="ci-count warn" data-count="__sm_orphan">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_only"       onclick="selectCategory('__sm_only')"       id="sm-cat-only"       style="display:none;"><span title="In sitemap but no internal links point to them — Google sees them, internal navigation doesn't">Orphan Pages — no internal links</span><span class="ci-count warn" data-count="__sm_only">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_noindex"    onclick="selectCategory('__sm_noindex')"    id="sm-cat-noindex"    style="display:none;"><span title="In sitemap but noindex">Non-indexable in sitemap</span><span class="ci-count warn" data-count="__sm_noindex">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_non200"     onclick="selectCategory('__sm_non200')"     id="sm-cat-non200"     style="display:none;"><span title="In sitemap but 4xx/5xx">Non-200 in sitemap</span><span class="ci-count err" data-count="__sm_non200">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_redirects"  onclick="selectCategory('__sm_redirects')"  id="sm-cat-redirects"  style="display:none;"><span title="In sitemap but redirects">Redirects in sitemap</span><span class="ci-count warn" data-count="__sm_redirects">0</span></button>
+      <button type="button" class="ci-cat" data-cat="__sm_pagination" onclick="selectCategory('__sm_pagination')" id="sm-cat-pagination" style="display:none;"><span title="Pagination URLs shouldn't be in sitemap">Pagination in sitemap</span><span class="ci-count warn" data-count="__sm_pagination">0</span></button>
 
       <div class="ci-section-header" id="nd-section-header" style="display:none;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;padding:10px 8px 4px;font-weight:700;">Content duplication</div>
-      <div class="ci-cat" data-cat="__nd_content" onclick="selectCategory('__nd_content')" id="nd-cat-content" style="display:none;"><span title="Pairs of pages whose body content exceeds the similarity threshold">Near-duplicate content</span><span class="ci-count warn" data-count="__nd_content">0</span></div>
+      <button type="button" class="ci-cat" data-cat="__nd_content" onclick="selectCategory('__nd_content')" id="nd-cat-content" style="display:none;"><span title="Pairs of pages whose body content exceeds the similarity threshold">Near-duplicate content</span><span class="ci-count warn" data-count="__nd_content">0</span></button>
 
       <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;padding:10px 8px 4px;font-weight:700;">Visualisations</div>
-      <div class="ci-cat" data-cat="__sitemap_viz" onclick="selectCategory('__sitemap_viz')"><span title="Sunburst, hierarchy and anchor-text cloud views of the site">Site Structure</span><span class="ci-count" data-count="__sitemap_viz">—</span></div>
+      <button type="button" class="ci-cat" data-cat="__sitemap_viz" onclick="selectCategory('__sitemap_viz')"><span title="Sunburst, hierarchy and anchor-text cloud views of the site">Site Structure</span><span class="ci-count" data-count="__sitemap_viz">—</span></button>
     </aside>
 
     <section class="main">
@@ -333,8 +349,8 @@
           </button>
           <div style="display:flex;align-items:center;gap:3px;background:var(--bw-surface);border:1px solid var(--bw-rule);border-radius:6px;padding:3px 8px;">
             <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--text-muted);flex-shrink:0;"><circle cx="9" cy="9" r="6"/><path d="M13.5 13.5L18 18"/></svg>
-            <input type="text" id="sc-url-search" placeholder="Filter by URL…" oninput="scFilterByUrl(this.value)" autocomplete="off" spellcheck="false" style="background:none;border:none;outline:none;font-size:11px;width:150px;padding:2px 0;" />
-            <button id="sc-url-search-clear" onclick="document.getElementById('sc-url-search').value='';scFilterByUrl('')" style="display:none;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1;padding:0 2px;" title="Clear">×</button>
+            <input type="text" id="sc-url-search" placeholder="Filter by URL…" oninput="scFilterByUrl(this.value)" autocomplete="off" spellcheck="false" aria-label="Filter results by URL" style="background:none;border:none;outline:none;font-size:11px;width:150px;padding:2px 0;" />
+            <button id="sc-url-search-clear" onclick="document.getElementById('sc-url-search').value='';scFilterByUrl('')" style="display:none;background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:14px;line-height:1;padding:0 2px;" title="Clear" aria-label="Clear search filter">×</button>
           </div>
         </div>
         <div id="crawler-error-banner" style="display:none;padding:10px 14px;border-bottom:1px solid var(--bw-error-bg);background:var(--bw-error-bg);color:var(--bw-error);font-size:12.5px;font-weight:500;align-items:center;gap:10px;line-height:1.4;">
@@ -347,7 +363,7 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.97"/></svg>
             <span>Re-crawl</span>
           </button>
-          <button type="button" onclick="crawlerDismissErrorBanner()" title="Dismiss" style="flex-shrink:0;background:none;border:none;color:var(--bw-error);font-size:18px;line-height:1;cursor:pointer;padding:4px 6px;">×</button>
+          <button type="button" onclick="crawlerDismissErrorBanner()" title="Dismiss" aria-label="Dismiss error" style="flex-shrink:0;background:none;border:none;color:var(--bw-error);font-size:18px;line-height:1;cursor:pointer;padding:4px 6px;">×</button>
         </div>
         <div id="crawler-limit-banner" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(32,59,86,0.6);align-items:center;justify-content:center;">
           <div style="background:#fff;border-radius:10px;box-shadow:0 20px 50px rgba(0,0,0,.25);max-width:520px;width:92%;padding:24px 26px;font-size:13px;line-height:1.5;font-family:'Montserrat',sans-serif;">
@@ -422,7 +438,7 @@
             <button class="dock-tab" data-tab="inlinks" onclick="dockSwitchTab('inlinks')">Inlinks (<span id="dock-in-count">0</span>)</button>
             <button class="dock-tab" data-tab="outlinks" onclick="dockSwitchTab('outlinks')">Outlinks (<span id="dock-out-count">0</span>)</button>
           </div>
-          <button class="dock-close" onclick="closeDock()" title="Close">✕</button>
+          <button class="dock-close" onclick="closeDock()" title="Close" aria-label="Close panel">✕</button>
         </div>
         <div class="dock-body">
           <div class="dock-pane" data-tab="details" id="dock-pane-details"></div>
@@ -445,7 +461,7 @@
           <span style="background:var(--bw-success-bg);padding:1px 5px;border-radius:3px;color:var(--bw-success);">shared phrase</span>
           <span style="background:var(--bw-error-bg);padding:1px 5px;border-radius:3px;color:var(--bw-error);margin-left:6px;">unique to this page</span>
         </div>
-        <button type="button" onclick="closeNdDiff()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:22px;line-height:1;">×</button>
+        <button type="button" onclick="closeNdDiff()" aria-label="Close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:22px;line-height:1;">×</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);flex:1;overflow:hidden;min-height:0;">
         <div style="background:var(--surface);display:flex;flex-direction:column;overflow:hidden;">
@@ -471,9 +487,83 @@
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;width:min(1000px,98vw);max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
       <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
         <div style="font-weight:700;font-size:13px;flex:1;font-family:'Montserrat',sans-serif;">Saved crawls</div>
-        <button type="button" onclick="closeCrawlLoader()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:22px;line-height:1;">×</button>
+        <button type="button" onclick="closeCrawlLoader()" aria-label="Close" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:22px;line-height:1;">×</button>
       </div>
       <div id="crawl-loader-body" style="flex:1;overflow:auto;min-height:0;"></div>
+    </div>
+  </div>
+
+  <!-- Saved Strategies Modal -->
+  <div id="saved-strategies-modal" style="display:none;position:fixed;inset:0;background:rgba(32,59,86,0.6);z-index:9999;align-items:center;justify-content:center;padding:32px 20px;" onclick="if(event.target===this)closeSavedStrategies()">
+    <div style="background:var(--surface);width:min(820px,98vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--bw-secondary);border-radius:8px 8px 0 0;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span style="color:#fff;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">Saved Keyword Strategies</span>
+        <button type="button" onclick="closeSavedStrategies()" aria-label="Close" class="topbar-btn" style="margin-left:auto;">✕</button>
+      </div>
+      <div style="padding:10px 18px;border-bottom:1px solid var(--border);background:var(--bw-surface);flex-shrink:0;">
+        <input type="search" id="saved-strategies-search" placeholder="Search by domain…" oninput="filterSavedStrategies(this.value)" autocomplete="off" style="width:100%;box-sizing:border-box;font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;" />
+      </div>
+      <div style="flex:1;overflow-y:auto;min-height:0;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:var(--bw-secondary);position:sticky;top:0;">
+              <th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.06em;font-family:'Montserrat',sans-serif;">Domain</th>
+              <th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.06em;font-family:'Montserrat',sans-serif;">Brand</th>
+              <th style="padding:8px 14px;text-align:center;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.06em;font-family:'Montserrat',sans-serif;">Pages</th>
+              <th style="padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:.06em;font-family:'Montserrat',sans-serif;">Last updated</th>
+              <th style="padding:8px 14px;"></th>
+            </tr>
+          </thead>
+          <tbody id="saved-strategies-body">
+            <tr><td colspan="5" style="padding:24px;text-align:center;color:var(--text-muted);font-family:'Montserrat',sans-serif;font-size:12px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyword Strategy Modal -->
+  <div id="strategy-modal" style="display:none;position:fixed;inset:0;background:rgba(32,59,86,0.6);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;" onclick="if(event.target===this)closeStrategyModal()">
+    <div style="background:var(--surface);width:min(1160px,98vw);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border-radius:8px;box-shadow:0 24px 60px rgba(0,0,0,0.45);">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--bw-secondary);border-radius:8px 8px 0 0;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+        <span style="color:#fff;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">Keyword Strategy</span>
+        <code id="strategy-domain-label" style="color:rgba(255,255,255,.5);font-family:'IBM Plex Mono','SF Mono','Menlo',monospace;font-size:11px;margin-left:2px;"></code>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+          <button type="button" id="strategy-auto-draft-btn" onclick="strategyAutoDraft()" class="topbar-btn">Auto-draft from crawl</button>
+          <button type="button" id="strategy-save-btn" onclick="saveStrategyAll()" class="topbar-btn" style="background:var(--bw-brand-600);border-color:var(--bw-brand-600);color:#fff;">Save</button>
+          <button type="button" onclick="closeStrategyModal()" aria-label="Close" class="topbar-btn">✕</button>
+        </div>
+      </div>
+
+      <!-- Site-level settings -->
+      <div style="display:flex;gap:14px;padding:8px 18px;border-bottom:1px solid var(--border);background:var(--bw-surface);flex-shrink:0;flex-wrap:wrap;align-items:center;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">
+          Brand
+          <input type="text" id="strategy-brand" placeholder="ACME Corp" oninput="strategyMarkDirty()" style="font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;width:150px;" />
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">
+          Brand keywords
+          <input type="text" id="strategy-brand-kws" placeholder="ACME Corp, ACME" oninput="strategyMarkDirty()" style="font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;width:200px;" />
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:10px;font-family:'Montserrat',sans-serif;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;">
+          Global keywords
+          <input type="text" id="strategy-global-kws" placeholder="web design, digital agency" oninput="strategyMarkDirty()" style="font-size:12px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-family:'Montserrat',sans-serif;width:250px;" />
+        </label>
+      </div>
+
+      <!-- Loading -->
+      <div id="strategy-loading" style="display:none;flex:1;align-items:center;justify-content:center;font-size:13px;color:var(--text-muted);font-family:'Montserrat',sans-serif;padding:40px;">Loading…</div>
+
+      <!-- Two-column body -->
+      <div id="strategy-content" style="display:flex;flex:1;min-height:0;overflow:hidden;">
+        <div id="strategy-url-list" class="strategy-url-list"></div>
+        <div id="strategy-editor" class="strategy-editor"><div style="padding:20px;color:var(--text-muted);font-size:12px;font-family:'Montserrat',sans-serif;">Select a URL from the list to edit its keyword strategy.</div></div>
+      </div>
+
     </div>
   </div>
 

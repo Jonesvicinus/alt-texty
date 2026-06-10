@@ -34,6 +34,8 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(levelname)s: %(message)s')
 from alt_text import alt_text_bp  # must import after load_dotenv() sets OPENAI_API_KEY
 app.register_blueprint(alt_text_bp)
+from keyword_strategy import strategy_bp
+app.register_blueprint(strategy_bp)
 if not os.environ.get("OPENAI_API_KEY"):
     logging.warning("OPENAI_API_KEY not set — /generate-alt will not work")
 

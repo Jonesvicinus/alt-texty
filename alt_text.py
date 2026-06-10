@@ -5,6 +5,7 @@ import requests as _requests
 from flask import Blueprint, request, jsonify
 from openai import OpenAI
 from urllib.parse import urlparse
+from keyword_strategy import get_url_strategy
 
 _ALLOWED_IMAGE_TYPES = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif"
@@ -109,6 +110,8 @@ def generate_alt():
     classification = data.get("classification", "missing")
     in_link = bool(data.get("in_link", False))
     surrounding_text = data.get("surrounding_text", "")
+    strategy = get_url_strategy(page_url)
+    strategy_applied = False
 
     if not _is_safe_image_url(src):
         return jsonify({"error": "invalid_image_url", "message": "URL must be http/https and not point to a local address"}), 400
@@ -154,6 +157,17 @@ def generate_alt():
     if surrounding_text:
         ctx_lines.append(f"Surrounding text on the page: {surrounding_text}")
     ctx_lines.append(f"Crawler classification: {classification}")
+    if strategy:
+        kw_parts = []
+        if strategy.get("primary_keyword"):
+            kw_parts.append(f'targeting "{strategy["primary_keyword"]}"')
+        if strategy.get("global_keywords"):
+            kw_parts.append(f'themes: {", ".join(strategy["global_keywords"][:3])}')
+        if strategy.get("brand"):
+            kw_parts.append(f'brand: {strategy["brand"]}')
+        if kw_parts:
+            ctx_lines.insert(0, f'Keyword context: This image is on a page {"; ".join(kw_parts)}. Where natural and accurate, reflect this topic in the alt text.')
+            strategy_applied = True
     user_text = "\n".join(ctx_lines)
 
     # Call OpenAI
@@ -184,6 +198,7 @@ def generate_alt():
 
     result = json.loads(completion.choices[0].message.content)
     result["warnings"] = _validate(result)
+    result["strategy_applied"] = strategy_applied
     return jsonify(result)
 
 
@@ -216,6 +231,8 @@ def generate_meta():
     data = request.get_json(silent=True) or {}
     page_url = (data.get("page_url") or "").strip()
     field = data.get("field", "meta")  # "meta" or "title"
+    strategy = get_url_strategy(page_url)
+    strategy_applied = False
 
     if not page_url:
         return jsonify({"error": "page_url is required"}), 400
@@ -250,6 +267,22 @@ def generate_meta():
     if body_text:
         ctx_parts.append(f"Page text excerpt:\n{body_text}")
 
+    if strategy:
+        kw_parts = []
+        if strategy.get("primary_keyword"):
+            kw_parts.append(f'Primary keyword: {strategy["primary_keyword"]}')
+        if strategy.get("secondary_keywords"):
+            kw_parts.append(f'Secondary keywords: {", ".join(strategy["secondary_keywords"])}')
+        if strategy.get("intent"):
+            kw_parts.append(f'Search intent: {strategy["intent"]}')
+        if strategy.get("brand"):
+            kw_parts.append(f'Brand: {strategy["brand"]}')
+        if strategy.get("notes"):
+            kw_parts.append(f'Strategy notes: {strategy["notes"][:300]}')
+        if kw_parts:
+            ctx_parts.insert(0, "Keyword strategy:\n" + "\n".join(kw_parts))
+            strategy_applied = True
+
     system_prompt = _META_SYSTEM_PROMPT if field == "meta" else _TITLE_SYSTEM_PROMPT
 
     try:
@@ -282,4 +315,5 @@ def generate_meta():
             warnings.append(f"{n} chars — aim for 50–60")
     result["warnings"] = warnings
     result["char_count"] = n
+    result["strategy_applied"] = strategy_applied
     return jsonify(result)
