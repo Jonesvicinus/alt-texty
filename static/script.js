@@ -6321,6 +6321,14 @@ async function strategyAutoDraft() {
     showToast('Run a crawl first: auto-draft uses crawl data to suggest keywords.', 'info');
     return;
   }
+  // Verify the loaded crawl belongs to the strategy being edited
+  let loadedDomain = '';
+  try { loadedDomain = new URL(crawlerResults[0].url).hostname.replace(/^www\./, ''); } catch {}
+  const editingDomain = (_strategyDomain || '').replace(/^www\./, '');
+  if (loadedDomain && editingDomain && loadedDomain !== editingDomain) {
+    showToast(`Auto-draft uses the currently loaded crawl (${loadedDomain}). Load a crawl for ${editingDomain} first.`, 'error');
+    return;
+  }
   const btn = document.getElementById('strategy-auto-draft-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
 

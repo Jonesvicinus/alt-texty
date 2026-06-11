@@ -259,14 +259,21 @@ def generate_draft():
             analysis = client.chat.completions.create(
                 model='gpt-4o-mini',
                 response_format={'type': 'json_object'},
-                max_tokens=200,
+                max_tokens=400,
                 messages=[
                     {
                         'role': 'system',
                         'content': (
                             'Analyze this website homepage and identify the business. '
-                            'Return JSON: {"business_type": "...", "location": "city/region or national", '
-                            '"target_customer": "...", "brand_name": "..."}'
+                            'Return JSON with these fields:\n'
+                            '- business_type: short description of what the business does\n'
+                            '- location: city/region name, or "national" if not location-specific\n'
+                            '- target_customer: who the business serves\n'
+                            '- brand_name: the official business name\n'
+                            '- brand_keywords: array of 2-4 alternative names/abbreviations people search for this brand (e.g. shortened name, acronym, common misspelling). Empty array if no clear alternatives.\n'
+                            '- global_keywords: array of 3-5 industry/service themes that appear across the whole site — phrases real people search, not internal jargon\n'
+                            'Example: {"business_type": "...", "location": "...", "target_customer": "...", '
+                            '"brand_name": "...", "brand_keywords": ["...", "..."], "global_keywords": ["...", "...", "..."]}'
                         )
                     },
                     {'role': 'user', 'content': '\n'.join(analysis_lines)}
@@ -283,6 +290,10 @@ def generate_draft():
             site_context = ', '.join(parts)
             if site_info.get('brand_name') and not existing.get('brand'):
                 existing['brand'] = site_info['brand_name']
+            if site_info.get('brand_keywords'):
+                existing['brand_keywords'] = site_info['brand_keywords']
+            if site_info.get('global_keywords'):
+                existing['global_keywords'] = site_info['global_keywords']
         except Exception:
             pass  # non-fatal — batches proceed without site context
 
