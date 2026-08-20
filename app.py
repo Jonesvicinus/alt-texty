@@ -619,11 +619,12 @@ def crawl_budget_analyze():
 
 @app.route('/version')
 def version():
-    """Local build SHA, served to the UI for display + comparison
-    against the GitHub master HEAD (client-side fetch)."""
+    """Local build SHA, served to the UI for display + comparison against
+    our own fork's master HEAD (client-side fetch). Must stay the same repo
+    /update pulls from, or the badge nags about commits it cannot fetch."""
     return jsonify({
         'sha': _local_commit_sha(),
-        'repo': 'puneetindersingh/open-seo-crawler',
+        'repo': 'Jonesvicinus/alt-texty',
     })
 
 

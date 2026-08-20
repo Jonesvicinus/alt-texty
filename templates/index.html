@@ -48,29 +48,39 @@
     </div>
   </header>
   <script>
+    const SC_REPO = 'Jonesvicinus/alt-texty';
     window.addEventListener('DOMContentLoaded', function() {
       (async () => {
         const badge = document.getElementById('build-version');
         if (!badge) return;
         const local = (badge.textContent || '').replace(/^v\s*/, '').trim();
         if (!local || local === 'dev') return;
-        const ck = 'sc_remote_sha_v2';
+        // Compare this build against OUR OWN fork (the repo /update pulls from).
+        // Only nag when the remote is genuinely AHEAD: an unpushed local build
+        // or one ahead of origin must not beg to be "updated" back down.
+        const ck = 'sc_remote_sha_v3';
         const cache = JSON.parse(localStorage.getItem(ck) || '{}');
         const cacheFresh = (Date.now() - (cache.t || 0) < 600 * 1000) && cache.local === local;
         let remote = cacheFresh ? cache.sha : null;
-        if (!remote) {
+        let ahead = cacheFresh ? !!cache.ahead : false;
+        if (!cacheFresh) {
           try {
-            const r = await fetch('https://api.github.com/repos/puneetindersingh/open-seo-crawler/commits/master', { headers: { 'Accept': 'application/vnd.github+json' } });
+            const r = await fetch(`https://api.github.com/repos/${SC_REPO}/compare/${local}...master`,
+                                  { headers: { 'Accept': 'application/vnd.github+json' } });
             if (r.ok) {
               const d = await r.json();
-              remote = (d.sha || '').slice(0, 7);
-              if (remote) localStorage.setItem(ck, JSON.stringify({ sha: remote, local, t: Date.now() }));
+              // status: ahead = origin has newer commits; identical / behind /
+              // diverged = nothing to pull. 404 (unpushed sha) lands in catch.
+              ahead = d.status === 'ahead';
+              const tip = (d.commits && d.commits.length) ? d.commits[d.commits.length - 1].sha : '';
+              remote = tip ? tip.slice(0, 7) : local;
+              localStorage.setItem(ck, JSON.stringify({ sha: remote, local, ahead, t: Date.now() }));
             }
           } catch {}
         }
         window._scBuildLocal = local;
         window._scBuildRemote = remote;
-        if (remote && remote !== local) {
+        if (ahead && remote && remote !== local) {
           badge.style.color = 'var(--surface)';
           badge.style.background = 'var(--bw-warn-border)';
           badge.style.border = '1px solid var(--bw-warn-border)';
