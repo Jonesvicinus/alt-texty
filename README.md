@@ -1,12 +1,12 @@
-# Open SEO Crawler — Free, Self-Hosted Screaming Frog Alternative
+# Open SEO Crawler — Free SEO Crawler & Website Audit Tool (Self-Hosted)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Platform: Linux · macOS · Windows](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](#one-line-install--auto-start--auto-update-linux--macos--windows)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
-**A free, open-source SEO site crawler you can run locally.** Fast, concurrent, CMS-aware. A drop-in alternative to Screaming Frog, Sitebulb, and Ahrefs Site Audit, with no accounts, no API keys, no cloud, and no per-URL limits.
+**Open SEO Crawler is a free, open-source SEO crawler you run locally** — a self-hosted website SEO crawler and site audit tool that crawls any website for technical SEO issues. Fast, concurrent, and CMS-aware, it's a drop-in alternative to Screaming Frog, Sitebulb, and Ahrefs Site Audit, with no accounts, no API keys, no cloud, and no per-URL limits.
 
-Built for SEO professionals, web developers, and site owners who want a real technical SEO audit that stays on their machine.
+Built for SEO professionals, web developers, and site owners who want a real technical SEO audit that stays on their machine. Use it as a free SEO crawler for a single site or a recurring website crawler across your whole portfolio.
 
 → One-line install on Linux, macOS, or Windows. Auto-starts on boot, auto-updates daily. Browser opens at `http://localhost:5002/` when done.
 
@@ -25,7 +25,13 @@ Built for SEO professionals, web developers, and site owners who want a real tec
 
 ## What's new (recent additions)
 
-- **robots.txt AI-crawler block detection** — flags, as a red error, when robots.txt blocks AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot, Bytespider + 20 more) — meaning the site can't be read or cited by ChatGPT, Claude, Perplexity or Google AI Overviews — or when classic search engines (Googlebot/Bingbot) are blocked. Also detects Cloudflare `Content-Signal: ai-train=no` opt-outs. Surfaces on the homepage row in the issues sidebar under **AI Crawlers Blocked** / **Search Engines Blocked**.
+- **Malformed link href detection** — a scheme-less `href` containing a raw space (a street address or Google Maps Plus Code pasted straight into a link, e.g. `<a href="7FG4+8Q Springfield">Directions</a>`) used to resolve relative to every page carrying it and flood the crawl with phantom 404s — one broken footer link on a 300-page site meant ~300 fake 404 rows. Now it's skipped as a link and reported once per page as a **Malformed link href** issue naming the offending text.
+- **JS vs no-JS compare mode** — with Render JS on, tick *Compare with non-JS HTML* to crawl every page in BOTH modes (Playwright-rendered and raw HTML). The per-page diff shows exactly which content is invisible to AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended), which mostly don't execute JavaScript.
+- **Shared-instance support** — point the saved-crawls list at extra folders (`SITE_CRAWLER_EXTRA_CRAWL_DIRS`) so one office instance shows crawls from multiple tools, and label who ran each crawl by IP (`SITE_CRAWLER_USER_MAP`).
+- **Crawl Budget page** — scans the homepage + section pages, buckets every discovered URL by query parameter, classifies crawl-budget traps (Elementor `?e-page-` AJAX pagination, faceted filters, sort / tracking / session params) and generates ready-to-paste robots.txt `Disallow` rules. Shows the sitemap's real page count next to the phantom parameter URLs so the wasted crawl budget is obvious.
+- **Soft-404 / infinite-URL-trap detection** — after every crawl, two probe requests check whether the server returns 200 for URLs that cannot exist (`/<token>/` at the root, and nested under a real page). A 200 means the server soft-404s and mints an infinite crawlable URL space; flagged red in the issues sidebar with fix guidance.
+- **Images Missing Alt report** — image-centric bulk report: one row per image missing alt text, with every page that embeds it.
+- **robots.txt AI-crawler block detection** — flags, as a red error, when robots.txt blocks AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, CCBot, Bytespider + 20 more) — meaning the site can't be read or cited by ChatGPT, AI, Perplexity or Google AI Overviews — or when classic search engines (Googlebot/Bingbot) are blocked. Also detects Cloudflare `Content-Signal: ai-train=no` opt-outs. Surfaces on the homepage row in the issues sidebar under **AI Crawlers Blocked** / **Search Engines Blocked**.
 - **Post-crawl Summary dashboard** — auto-opens after a crawl finishes with a one-glance view of issues by severity, total pages, response code mix, and the worst offenders.
 - **Bulk SEO reports** — All Titles, All Metas, All H1s, All Canonicals, plus dedicated Duplicate Title / Duplicate Meta / Duplicate H1 / Duplicate Body / Multiple H1s / Redirect Chains / Response Codes / Deep Pages / Hreflang reports.
 - **Severity-grouped issues view** — pages are bucketed by the worst issue on them (Errors / Warnings / Info) and grouped by issue type so you fix the highest-impact problems first.
@@ -45,7 +51,14 @@ Built for SEO professionals, web developers, and site owners who want a real tec
 - **Near-duplicate content** — shingle-based Jaccard similarity flags pairs of pages that are 90%+ similar (tweakable 80 / 85 / 90 or custom).
 - **Robots.txt aware** (or ignore it, your choice).
 - **Glob include / exclude patterns** — `*?variant=*`, `*/cart/*`, etc.
-- **Optional JS rendering via Playwright** — install separately for SPA sites (React, Vue, Wix).
+- **Optional JS rendering via Playwright** — install separately for SPA sites (React, Vue, Wix). With **Compare with non-JS HTML** ticked, every page is crawled in both modes and the diff flags content invisible to non-JS crawlers.
+- **Built-in crawler-trap protection** — bad links and infinite URL spaces are filtered before they poison your reports, no config needed:
+  - Non-page paths skipped (`/feed/`, `/wp-json/`, `/wp-admin/`, `/cdn-cgi/`, sitemap XML, cart/checkout AJAX endpoints)
+  - Repeating-segment guard — refuses `/our-team/our-team/`-style URLs minted by path-relative nav hrefs
+  - Page-builder pagination/filter params (`?e-page-*`, `?e-filter-*` Elementor AJAX, `?infinity` Jetpack) never enqueued — the classic "26k queued on a 9k-page site" blow-up
+  - Bare emails written without `mailto:` (`<a href="sales@example.com">`) dropped instead of becoming fake `/contact/sales@example.com` URLs
+  - Plain text pasted into `href` (addresses, Google Maps Plus Codes) reported as a **Malformed link href** issue instead of spawning a phantom 404 under every page
+  - Post-crawl soft-404 probes detect servers that return 200 for URLs that cannot exist
 
 ### What gets checked per page
 
@@ -53,7 +66,7 @@ Built for SEO professionals, web developers, and site owners who want a real tec
 - **Meta descriptions** — missing, too long (>160 chars), too short, duplicate across pages
 - **H1 tags** — missing, multiple H1s, identical to title, duplicate across pages
 - **Canonical tags** — missing, points elsewhere (canonicalised), self-referencing
-- **Schema.org structured data** — presence + types detected
+- **Schema.org structured data** — presence + types detected from both JSON-LD and microdata (`itemtype`) markup
 - **Open Graph + Twitter Card** — missing `og:title`, `og:image`, `twitter:card`
 - **Content** — thin content (<200 words), near-duplicate bodies (Jaccard similarity)
 - **Performance** — slow response time (>3 s)
@@ -62,13 +75,15 @@ Built for SEO professionals, web developers, and site owners who want a real tec
 - **HTTP errors** — 4xx / 5xx with retry counts
 - **Indexability** — `noindex` in meta robots or X-Robots-Tag
 - **Hreflang** — extracted, validated, missing return-tags flagged
-- **Pagination** — `/page/N/` and `?page=N` archive URLs crawled but skipped for SEO issue checks (no false positives for missing meta on paginated archives)
+- **Pagination** — `/page/N/`, `?page=N`, `?paged=N` and builder-prefixed variants like `?_page=N` crawled but skipped for SEO issue checks (no false positives for missing meta on paginated archives)
 - **Mobile-friendliness** — viewport meta tag presence
 - **Mixed content** — HTTPS pages loading HTTP resources
 - **URL hygiene** — uppercase, underscores, spaces, >115 chars, tracking parameters
+- **Malformed link hrefs** — plain text pasted into an `href` (addresses, Plus Codes) flagged per page instead of crawled as phantom URLs
 - **Images** — count of images missing `alt` attributes (decorative `alt=""` not penalised)
 - **Security headers** — HTTPS, HSTS, CSP, X-Frame-Options, X-Content-Type-Options
 - **Deep pages** — URLs more than N clicks from the homepage (configurable)
+- **Soft 404s / URL traps** — post-crawl probes detect servers that return 200 for non-existent URLs (root and nested), creating an infinite crawlable URL space; redirects and 4xx/5xx probe responses are treated as healthy
 
 ### Bulk reports (sidebar)
 
@@ -80,8 +95,16 @@ Every report exports to XLSX so you can hand it to a content team or dev:
 - **Redirect Chains** — pages reached via 2+ hops, with the full chain
 - **Response Codes** — breakdown by status code
 - **Deep Pages** — URLs N+ clicks from homepage
+- **Images Missing Alt** — one row per image missing alt text, with every page that embeds it
 - **Hreflang** — extracted, validated, cross-page consistency checked
 - **Severity views** — All Errors / All Warnings / All Info, with irrelevant columns hidden per view
+
+### Crawl budget analysis
+
+- **On-demand Crawl Budget page** (topbar) — no full crawl needed: scans the homepage and section pages, buckets every discovered URL by query parameter, and classifies which parameters are crawl-budget traps — Elementor `?e-page-` AJAX pagination, faceted filters, sort orders, tracking and session IDs.
+- **Ready-to-paste robots.txt rules** — generates the exact `Disallow` lines to block each trap, and explains what each trap is and why robots.txt is the right fix.
+- **Waste made visible** — shows the sitemap's real page count next to the phantom parameter URLs, so you can see how much crawl budget is spent on URLs that shouldn't exist.
+- **Soft-404 / infinite-URL-trap probe** — runs automatically after every crawl; results land in a red **URL Traps** category in the issues sidebar with a detail panel and fix guidance.
 
 ### Auto-update + version badge
 
@@ -204,41 +227,47 @@ tail -f ~/Library/Logs/OpenSEOCrawler/update.log                                
 
 ### One-line install on Windows 10 / 11
 
-Uses `winget` + Task Scheduler. No admin rights needed.
+Uses `winget` + a Startup-folder shortcut. No admin rights needed.
 
 Open PowerShell (Start menu → type "powershell" → Enter) and paste:
 
 ```powershell
-iwr https://raw.githubusercontent.com/puneetindersingh/open-seo-crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/puneetindersingh/open-seo-crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 Dry-run preflight:
 
 ```powershell
-iwr https://raw.githubusercontent.com/puneetindersingh/open-seo-crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1 -Check
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/puneetindersingh/open-seo-crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1 -Check
 ```
+
+> The `Tls12` prefix forces a modern TLS handshake — without it, Windows PowerShell 5.1 on some machines defaults to TLS 1.0/1.1 and the GitHub download fails with *"Could not create SSL/TLS secure channel."*
 
 What the installer does:
 
 - Verifies prerequisites (Windows, Python 3.10+, disk space, free port 5002, internet)
-- Installs Python 3.12 + Git via `winget` if missing
+- Installs Python 3.12 + Git via `winget` (pinned to `--source winget` so it never trips over the msstore source's certificate error) if missing
+- Resolves the real `python.exe` directly (registry + standard install dirs), so the Microsoft Store `python` alias stub can't shadow a freshly-installed Python
 - Clones the repo to `%USERPROFILE%\open-seo-crawler`, creates a virtualenv, installs Python deps
-- Registers a `OpenSeoCrawler` Task Scheduler task (starts at logon, runs in the background via `pythonw.exe`, no console window)
-- Registers a `OpenSeoCrawler-Update` Task Scheduler task (runs 2 min after boot + daily at 03:30 with auto-rollback)
-- Opens `http://localhost:5002/` in your default browser
+- Writes helper scripts (`Run.ps1`, `Stop.ps1`, `Update.ps1`, `Autostart.ps1`) into the install folder
+- Adds Start Menu + Desktop shortcuts, and (unless `-NoAutostart`) a Startup-folder shortcut that pulls the latest code on each logon then launches the app in the background via `pythonw.exe` (no console window)
+- Starts the crawler and opens `http://localhost:5002/` in your default browser
+
+Flags: `-Check` (preflight only), `-UpdateNow` (pull + reinstall deps), `-NoAutostart` (skip the logon Startup shortcut).
 
 Useful commands after install (PowerShell):
 
 ```powershell
-Get-ScheduledTask -TaskName OpenSeoCrawler                                          # is it registered?
-Stop-ScheduledTask -TaskName OpenSeoCrawler; Start-ScheduledTask -TaskName OpenSeoCrawler  # restart
-Stop-ScheduledTask -TaskName OpenSeoCrawler                                         # stop
-Unregister-ScheduledTask -TaskName OpenSeoCrawler -Confirm:$false                   # remove
-.\install-windows.ps1 -UpdateNow                                                    # force update
-Get-Content "$env:USERPROFILE\open-seo-crawler\update.log" -Tail 50 -Wait           # tail update log
+& "$env:USERPROFILE\open-seo-crawler\Run.ps1"        # run in this window
+& "$env:USERPROFILE\open-seo-crawler\Stop.ps1"       # stop whatever is on port 5002
+& "$env:USERPROFILE\open-seo-crawler\Update.ps1"     # pull latest + reinstall deps if changed
+Get-Content "$env:USERPROFILE\open-seo-crawler\autostart.log" -Tail 50 -Wait   # tail autostart/update log
 ```
 
-> If PowerShell's execution policy blocks the script, the `-ExecutionPolicy Bypass` prefix shown above handles it. No admin rights are needed; `winget --scope user` and user-level scheduled tasks both work without UAC.
+To disable auto-start on logon, delete the `Open SEO Crawler (Autostart)` shortcut from
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`.
+
+> If PowerShell's execution policy blocks the script, the `-ExecutionPolicy Bypass` prefix shown above handles it. No admin rights are needed; `winget --scope user` and the user-level Startup shortcut both work without UAC.
 
 ### Optional: JS rendering (for SPAs)
 
@@ -283,11 +312,19 @@ The **Summary** tab auto-opens during the crawl and live-refreshes as pages come
 | Per-host delay | 0.4 s | Min gap between two requests to the same host. A warning is shown if set below 0.4 s |
 | Max depth | 10 | Clicks from seed URL |
 | Render JS | off | Enable for SPAs (requires Playwright) |
+| Compare with non-JS HTML | off | With Render JS on: crawl each page in both modes, diff flags JS-only content invisible to non-JS crawlers |
 | Ignore robots.txt | off | Default: respect Disallow rules |
 | Ignore noindex | off | Default: noindex pages excluded from duplicate / orphan reports |
 | Sitemap analysis | **on** | Post-crawl: flags missing from sitemap, orphans, sitemap-only, non-200, redirects in sitemap |
 | Near-duplicate content | **on** at 90% | Shingle Jaccard on body content; flag pairs ≥ 90% similar (tweak to 80 / 85 / 90 or custom) |
 | Include / exclude patterns | empty | Glob wildcards, e.g. `*?variant=*`, `*/cart/*` |
+
+Optional environment variables (for shared / multi-tool setups):
+
+| Variable | Purpose |
+|---|---|
+| `SITE_CRAWLER_EXTRA_CRAWL_DIRS` | Colon-separated extra folders to union (read-only) into the saved-crawls list, so one instance shows crawls saved by other tools |
+| `SITE_CRAWLER_USER_MAP` | Path to a JSON dict mapping IP → friendly name (default `~/.site-crawler-users.json`), so saved crawls show who ran them instead of an IP |
 
 ## Performance
 
@@ -326,6 +363,23 @@ MIT. See [LICENSE](./LICENSE).
 
 PRs welcome. The whole crawler is one readable Flask file (`app.py`) plus a minimal frontend, easy to extend.
 
+## FAQ
+
+**Is there a free SEO crawler?**
+Yes. Open SEO Crawler is a free, MIT-licensed SEO crawler with no page limit. Clone it, run `python3 app.py`, and crawl any website locally — no account, no API key, no credit card.
+
+**What is the best free Screaming Frog alternative?**
+Open SEO Crawler covers the core technical-SEO crawl most people use Screaming Frog for — titles, meta descriptions, H1s, canonicals, redirects, broken links, hreflang, duplicate content, sitemaps, and structured data — with unlimited URLs in the free tier and one-click XLSX export. The free Screaming Frog tier caps at 500 URLs; this has no cap.
+
+**Can this SEO crawler handle large websites?**
+Yes. It crawls concurrently (1-20 workers) with per-host rate limiting. A 1,500-page site finishes in under three minutes on default settings; set the page cap to Unlimited for bigger sites.
+
+**Does the website crawler work on Shopify, WordPress, and Webflow?**
+Yes. It auto-detects 10 CMS platforms (Shopify, WordPress + Yoast / Rank Math, Webflow, Wix, Squarespace, Kajabi, Ghost, Drupal, HubSpot, Joomla) and applies sensible crawl presets for each.
+
+**Is it really free and open source?**
+Yes — MIT licensed and self-hosted, running entirely on your machine. No telemetry, no phone-home, no per-URL billing.
+
 ## Related search terms
 
-free SEO crawler, open source SEO spider, free Screaming Frog alternative, self-hosted SEO audit tool, technical SEO crawler, website crawler for SEO, free site audit tool, SEO site crawler open source, Shopify SEO crawler, WordPress SEO audit tool, Webflow SEO audit, free duplicate content checker, free duplicate title checker, free duplicate meta description checker, free duplicate H1 checker, free broken link checker, free redirect chain finder, free hreflang validator, free XML sitemap analyzer, GDPR-safe SEO crawler, no signup SEO tool, no API key SEO crawler, CMS-aware crawler, concurrent web crawler, local SEO spider, MIT licensed SEO tool, Python SEO crawler, Flask SEO crawler, SEO audit XLSX export, severity-grouped SEO issues, post-crawl SEO summary dashboard, auto-update SEO tool
+SEO crawler, free SEO crawler, website SEO crawler, free SEO crawler tool, open source SEO crawler, free SEO spider, online SEO crawler self-hosted, open source SEO spider, free Screaming Frog alternative, self-hosted SEO audit tool, technical SEO crawler, website crawler for SEO, free site audit tool, SEO site crawler open source, Shopify SEO crawler, WordPress SEO audit tool, Webflow SEO audit, free duplicate content checker, free duplicate title checker, free duplicate meta description checker, free duplicate H1 checker, free broken link checker, free redirect chain finder, free hreflang validator, free XML sitemap analyzer, GDPR-safe SEO crawler, no signup SEO tool, no API key SEO crawler, CMS-aware crawler, concurrent web crawler, local SEO spider, MIT licensed SEO tool, Python SEO crawler, Flask SEO crawler, SEO audit XLSX export, severity-grouped SEO issues, post-crawl SEO summary dashboard, auto-update SEO tool

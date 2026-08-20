@@ -119,13 +119,48 @@ function Test-PythonOK {
     return $null
 }
 
+# Locate a REAL python.exe, bypassing the Microsoft Store alias stubs in
+# %LOCALAPPDATA%\Microsoft\WindowsApps (which Get-Command happily returns, but
+# which only pop open the Store and report "Python was not found"). Checks the
+# PEP-514 registry keys first, then the standard winget / python.org dirs.
+function Find-RealPython {
+    $cands = @()
+    foreach ($root in 'HKCU:\Software\Python\PythonCore', 'HKLM:\Software\Python\PythonCore') {
+        if (Test-Path $root) {
+            Get-ChildItem $root -ErrorAction SilentlyContinue | ForEach-Object {
+                $exe = (Get-ItemProperty -Path (Join-Path $_.PSPath 'InstallPath') -ErrorAction SilentlyContinue).ExecutablePath
+                if ($exe) { $cands += $exe }
+            }
+        }
+    }
+    $globs = @(
+        (Join-Path $env:LOCALAPPDATA 'Programs\Python\Python3*\python.exe'),
+        (Join-Path $env:PROGRAMFILES 'Python3*\python.exe')
+    )
+    if (${env:ProgramFiles(x86)}) { $globs += (Join-Path ${env:ProgramFiles(x86)} 'Python3*\python.exe') }
+    foreach ($g in $globs) {
+        Get-ChildItem $g -ErrorAction SilentlyContinue | ForEach-Object { $cands += $_.FullName }
+    }
+    foreach ($exe in ($cands | Select-Object -Unique)) {
+        if ($exe -and ($exe -notmatch 'WindowsApps') -and (Test-Path $exe)) {
+            if (Test-PythonOK $exe) { return $exe }
+        }
+    }
+    return $null
+}
+
 $pythonBin = $null
 $pythonVer = $null
 foreach ($cand in @('python', 'python3', 'py')) {
-    if (Get-Command $cand -ErrorAction SilentlyContinue) {
+    $g = Get-Command $cand -ErrorAction SilentlyContinue
+    if ($g -and ($g.Source -notmatch 'WindowsApps')) {
         $v = Test-PythonOK $cand
-        if ($v) { $pythonBin = $cand; $pythonVer = $v; break }
+        if ($v) { $pythonBin = $g.Source; $pythonVer = $v; break }
     }
+}
+if (-not $pythonBin) {
+    $real = Find-RealPython
+    if ($real) { $pythonBin = $real; $pythonVer = Test-PythonOK $real }
 }
 
 if ($pythonBin) {
@@ -177,17 +212,30 @@ if (-not $pythonBin -or -not (Get-Command git -ErrorAction SilentlyContinue)) {
         Fail 'winget not available. Install Python 3.12 from https://python.org/downloads and Git from https://git-scm.com manually, then re-run.'
     }
     Write-Host '>>> Installing missing packages via winget (user scope, no admin)...'
+    # --source winget is REQUIRED. Without it, winget also queries the msstore
+    # source, which on many machines fails with a certificate error
+    # (0x8a15005e "server certificate did not match") and aborts the whole
+    # install with "specify one of them using the --source option".
     if (-not $pythonBin) {
-        winget install -e --id Python.Python.3.12 --silent --accept-source-agreements --accept-package-agreements --scope user
+        winget install -e --id Python.Python.3.12 --source winget --scope user --silent --accept-source-agreements --accept-package-agreements
     }
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        winget install -e --id Git.Git --silent --accept-source-agreements --accept-package-agreements --scope user
+        winget install -e --id Git.Git --source winget --scope user --silent --accept-source-agreements --accept-package-agreements
     }
     $env:Path = [System.Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path','User')
-    foreach ($cand in @('python', 'python3', 'py')) {
-        if (Get-Command $cand -ErrorAction SilentlyContinue) {
-            $v = Test-PythonOK $cand
-            if ($v) { $pythonBin = $cand; $pythonVer = $v; break }
+    if (-not $pythonBin) {
+        foreach ($cand in @('python', 'python3', 'py')) {
+            $g = Get-Command $cand -ErrorAction SilentlyContinue
+            if ($g -and ($g.Source -notmatch 'WindowsApps')) {
+                $v = Test-PythonOK $cand
+                if ($v) { $pythonBin = $g.Source; $pythonVer = $v; break }
+            }
+        }
+        # PATH often isn't refreshed in-session after a winget install, and the
+        # Store alias stub can shadow the real python - resolve it by abs path.
+        if (-not $pythonBin) {
+            $real = Find-RealPython
+            if ($real) { $pythonBin = $real; $pythonVer = Test-PythonOK $real }
         }
     }
     if (-not $pythonBin) { Fail 'Python install via winget did not land. Install manually from python.org.' }
@@ -332,14 +380,23 @@ if ($reqBefore -ne $reqAfter) {
     & (Join-Path $PSScriptRoot 'venv\Scripts\pip.exe') install -r 'requirements.txt'
 }
 
-# Relaunch the app if it was running before we stopped it.
-if ($conns) {
-    Write-Host 'Restarting app...'
+# Always relaunch + verify via the robust helper. The old code only restarted
+# "if it was running before", so an update run while the app was already down
+# left nothing listening - the bricked-localhost symptom.
+Write-Host 'Restarting app...'
+$helper = Join-Path $PSScriptRoot 'restart-helper.ps1'
+if (Test-Path $helper) {
+    & $helper -OldPid 0 -Port 5002
+} else {
     $pyw = Join-Path $PSScriptRoot 'venv\Scripts\pythonw.exe'
     Start-Process -FilePath $pyw -ArgumentList ('"' + (Join-Path $PSScriptRoot 'app.py') + '"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden | Out-Null
 }
 
-Write-Host 'Update complete.'
+if (Get-NetTCPConnection -LocalPort 5002 -State Listen -ErrorAction SilentlyContinue) {
+    Write-Host 'Update complete - app is live at http://localhost:5002/' -ForegroundColor Green
+} else {
+    Write-Host 'Update done but the app did not come back up. Run .\Run.ps1 to see the error, or check restart.log.' -ForegroundColor Yellow
+}
 '@
 Set-Content -Path $updatePs1Path -Value $updatePs1 -Encoding UTF8
 
@@ -416,11 +473,18 @@ try {
     Log ('update step failed: ' + $_.Exception.Message)
 }
 
-# Launch the app (pythonw, no console)
-$pyw = Join-Path $PSScriptRoot 'venv\Scripts\pythonw.exe'
-$app = Join-Path $PSScriptRoot 'app.py'
-Log ('launching ' + $pyw + ' ' + $app)
-Start-Process -FilePath $pyw -ArgumentList ('"' + $app + '"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden | Out-Null
+# Launch + verify via the robust helper (pythonw, no console). Falls back to a
+# bare launch if the helper file isn't present.
+$helper = Join-Path $PSScriptRoot 'restart-helper.ps1'
+if (Test-Path $helper) {
+    Log 'launching via restart-helper'
+    & $helper -OldPid 0 -Port 5002 2>&1 | Out-Null
+} else {
+    $pyw = Join-Path $PSScriptRoot 'venv\Scripts\pythonw.exe'
+    $app = Join-Path $PSScriptRoot 'app.py'
+    Log ('launching ' + $pyw + ' ' + $app)
+    Start-Process -FilePath $pyw -ArgumentList ('"' + $app + '"') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden | Out-Null
+}
 Log 'autostart end'
 '@
 Set-Content -Path $autostartPs1Path -Value $autostartPs1 -Encoding UTF8

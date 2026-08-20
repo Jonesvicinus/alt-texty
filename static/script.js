@@ -46,6 +46,9 @@ let activeCategory = 'all';
 // Per-category metadata: severity, explanation, cited sources.
 // Shown in the info box above the table when a category is clicked.
 const ISSUE_META = {
+  'AI crawlers blocked': { sev: 'error', why: 'robots.txt is blocking AI answer-engine crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended and similar). These bots feed ChatGPT, Claude, Perplexity and Google AI Overviews: when they\'re blocked the site cannot be read, cited, or summarised in any AI answer. Often a CDN "Block AI bots" default rather than a deliberate decision: confirm intent, then unblock the search/citation bots (OAI-SearchBot, Claude-SearchBot, PerplexityBot, ChatGPT-User) if AI visibility is wanted.', sources: [['Cloudflare: Manage AI crawlers', 'https://developers.cloudflare.com/bots/concepts/bot/ai-bots/'], ['OpenAI: GPTBot', 'https://platform.openai.com/docs/bots'], ['Google: Google-Extended', 'https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers']] },
+  'AI training bots blocked': { sev: 'info', why: 'robots.txt blocks training/data-collection-only crawlers (CCBot, Bytespider, Applebot-Extended and similar). These bots harvest content for model training or resale: they do not feed live AI answers, so blocking them does not affect visibility in ChatGPT, Claude, Perplexity or Google AI Overviews. Usually a deliberate content-protection choice; no action needed unless inclusion in training corpora is wanted.', sources: [['Cloudflare: Manage AI crawlers', 'https://developers.cloudflare.com/bots/concepts/bot/ai-bots/'], ['Common Crawl: CCBot', 'https://commoncrawl.org/ccbot']] },
+  'Search engines blocked': { sev: 'error', why: 'robots.txt is disallowing a classic search crawler (Googlebot / Bingbot) or applies Disallow: / to all bots. This removes the site from normal search results entirely. Almost always a mistake: most often a staging Disallow: / rule left in place after launch. Fix immediately.', sources: [['Google: robots.txt intro', 'https://developers.google.com/search/docs/crawling-indexing/robots/intro']] },
   'Missing meta description': { sev: 'error', why: 'Google falls back to scraping body copy for the SERP snippet: almost always worse CTR than a hand-written description.', sources: [['Ahrefs: Meta Description', 'https://ahrefs.com/blog/meta-description/'], ['Moz: Meta Description', 'https://moz.com/learn/seo/meta-description']] },
   'Meta desc too long': { sev: 'warn', why: 'Google truncates around 155–160 characters on desktop, shorter on mobile. Past that gets ellipsised.', sources: [['Moz: Meta Description', 'https://moz.com/learn/seo/meta-description'], ['Ahrefs: Meta Description', 'https://ahrefs.com/blog/meta-description/']] },
   'Meta desc too short': { sev: 'warn', why: 'Under ~120 characters wastes SERP real estate and gives Google less to match against queries.', sources: [['Ahrefs: Meta Description', 'https://ahrefs.com/blog/meta-description/'], ['Moz: Meta Description', 'https://moz.com/learn/seo/meta-description']] },
@@ -85,6 +88,7 @@ const ISSUE_META = {
   '__response_codes': { sev: 'info', why: 'Crawl-wide HTTP status code distribution. A healthy site is mostly 2xx with a small tail of 3xx redirects; spikes in 4xx/5xx mean indexable URLs are bleeding link equity to error pages.', sources: [['Ahrefs: HTTP Status Codes', 'https://ahrefs.com/blog/http-status-codes/']] },
   '__deep':           { sev: 'warn', why: 'Pages 4+ clicks from the homepage get crawled less often and receive less PageRank. Surface them via category pages, related-content modules, or footer hub links to flatten depth.', sources: [['Ahrefs: Internal Links', 'https://ahrefs.com/blog/internal-links-for-seo/']] },
   '__hreflang':       { sev: 'info', why: 'Hreflang tells Google which language/region a page targets. Common mistakes that silently break it: invalid lang codes, duplicate x-default, and missing return tags (page A links to B but B doesn\'t link back to A: Google ignores both).', sources: [['Ahrefs: Hreflang Guide', 'https://ahrefs.com/blog/hreflang/'], ['Google: hreflang docs', 'https://developers.google.com/search/docs/specialty/international/localized-versions']] },
+  '__traps':          { sev: 'error', why: 'The server returns 200 OK for URLs that cannot exist. A soft 404 at the root makes every mistyped URL an indexable duplicate. A 200 on a nested path under a real page is worse: the served page\'s relative links resolve one level deeper, creating an INFINITE URL space: search engines waste crawl budget on phantom pages and scrapers can crawl forever, burning unlimited bandwidth on transfer-capped hosting. Fix: return 404 (or 301 to the real page) for any path that doesn\'t map to real content.', sources: [['Google: Soft 404 errors', 'https://developers.google.com/search/docs/crawling-indexing/http-network-errors#soft-404-errors'], ['Google: Infinite spaces', 'https://developers.google.com/search/blog/2008/08/to-infinity-and-beyond-no']] },
 };
 
 function sevOf(issue) {
@@ -99,7 +103,7 @@ function sevOf(issue) {
 // Client-side mirror of app.py's _is_third_party_widget_image — used to
 // scrub already-cached crawl results so reCAPTCHA / analytics / chat-widget
 // images stop polluting any image-related view without forcing a re-crawl.
-// Mirrored from seo-tool/static/script.js — keep in sync.
+// Keep in sync with the matching list in app.py.
 const _THIRD_PARTY_IMG_HOSTS_RE = /(?:^|\.)(gstatic\.com|googletagmanager\.com|google-analytics\.com|googleadservices\.com|doubleclick\.net|hotjar\.com|intercomcdn\.com|intercom\.io|crisp\.chat|cloudflareinsights\.com|tiktok\.com|connect\.facebook\.net|pinimg\.com|pinterest\.com|hs-analytics\.net|hs-scripts\.com)$/i;
 const _THIRD_PARTY_IMG_FILE_RE = /(?:\/recaptcha[\/_\-]|recaptcha[_\-](?:black|white|logo)|\/g\.gif$|\/pixel\.gif$|\/spacer\.gif$|\/tracking[_\-]pixel|fbq[_\-]pixel|\/fb-pixel|\/ga-pixel)/i;
 function _isThirdPartyWidgetImage(absSrc) {
@@ -316,7 +320,6 @@ function _scInitResizers() {
 // Generic resizer wiring — works on any <table> with a <colgroup>, .th-resize
 // spans in <thead>, and optionally data-resize-key for localStorage. Lets
 // every report panel opt in by emitting class="crawler-grid" + the markup.
-// Mirrors seo-tool's helper. Kept identical so future fixes apply to both.
 function _initTableResizers(table) {
   if (!table) return;
   const thead = table.querySelector('thead');
@@ -514,7 +517,10 @@ window.dockSwitchTab = function(tab) {
 function renderDock() {
   if (!dockUrl) return;
   const page = crawlerResults.find(r => r.url === dockUrl) || {};
-  const inlinks = _scLookupInlinks(dockUrl);
+  // For a redirect row, inbound links are recorded against the redirecting
+  // original_url, not the destination the row was rewritten to.
+  const inlinkUrl = (page.original_url && page.original_url !== page.url) ? page.original_url : dockUrl;
+  const inlinks = _scLookupInlinks(inlinkUrl);
   const outs = page.internal_link_urls || [];
   const urlEl = document.getElementById('dock-url');
   const inCount = document.getElementById('dock-in-count');
@@ -540,7 +546,12 @@ function renderDock() {
       <dt>Response time</dt><dd>${page.response_time || 0}s</dd>
       <dt>Depth</dt><dd>${page.depth || 0}</dd>
       <dt>Indexable</dt><dd>${page.indexable ? '<span class="badge info">yes</span>' : '<span class="badge error">no</span>'}</dd>
-      ${page.redirect_url ? `<dt>Redirects to</dt><dd>${escapeHtml(page.redirect_url)} <span style="color:var(--text-muted)">(${page.redirect_hops || 1} hop${(page.redirect_hops||1)>1?'s':''})</span></dd>` : ''}
+      ${page.redirect_url ? (() => {
+          const _rs = _scRedirectStatus(page);
+          const _m = _scRedirectStatusMeta(_rs);
+          const _pill = _rs ? `<span style="background:${_m.color};color:#fff;padding:0 6px;border-radius:8px;font-size:10.5px;font-weight:700;margin-right:5px;" title="${_m.name}">${_rs}</span>` : '';
+          return `<dt>Redirects to</dt><dd>${_pill}${escapeHtml(page.redirect_url)} <span style="color:var(--text-muted)">(${page.redirect_hops || 1} hop${(page.redirect_hops||1)>1?'s':''})</span></dd>`;
+        })() : ''}
       ${(page.redirect_chain && page.redirect_chain.length) ? `<dt>Redirect chain</dt><dd>
         <ol style="margin:0;padding-left:18px;list-style:decimal;">
           ${page.redirect_chain.map((h, i) => {
@@ -747,6 +758,8 @@ function startCrawl(opts) {
     ignore_noindex: document.getElementById('crawler-ignore-noindex').checked,
     include_patterns: document.getElementById('crawler-include').value.trim(),
     exclude_patterns: document.getElementById('crawler-exclude').value.trim(),
+    user_agent: _scSelectedUserAgent(),
+    solve_challenges: document.getElementById('crawler-solve-challenges')?.checked !== false,
   };
   if (resumeFromId) reqBody.resume_crawl_id = resumeFromId;
 
@@ -837,6 +850,11 @@ function startCrawl(opts) {
               // loads where this event never fires.
               if (p.reports && typeof p.reports === 'object') {
                 window.crawlerReports = p.reports;
+              }
+              // Crawl ended with nothing useful — surface a clear reason +
+              // Retry instead of silently landing on an empty summary.
+              if (p.stop_reason) {
+                crawlerShowErrorBanner(p.stop_reason, url);
               }
               // Post-crawl landing: switch to Summary so users immediately
               // see what needs fixing instead of staring at the raw row
@@ -1157,6 +1175,7 @@ window.selectCategory = function(cat) {
     '__dup_h1s':       'Duplicate H1s: groups of pages sharing an H1',
     '__dup_bodies':    'Duplicate Body Content: groups of pages with identical body hash',
     '__redir_chains':  'Redirect Chains (2+ hops)',
+    '__traps':         'Soft 404s / Infinite URL Trap (server answers 200 for non-existent URLs)',
     '__response_codes':'Response Code Distribution',
     '__deep':          'Deep Pages (4+ clicks from home)',
     '__hreflang':      'Hreflang Implementation',
@@ -1170,8 +1189,32 @@ window.selectCategory = function(cat) {
   // Also hide the "double-click to expand" hint — doesn't apply.
   const _tableWrap = document.querySelector('.table-wrap');
   const _expandHint = document.querySelector('.cs-expand-hint');
+  // Images Missing Alt — render IMAGE-centric (one row per unique image with the
+  // pages/inlinks that use it), not page-centric. A site-wide logo missing alt
+  // used to repeat once per page; Screaming Frog shows the image once and lists
+  // the pages. Intercept before the normal table path.
+  if (cat === 'imgs missing alt') {
+    renderIssueInfo(cat);
+    const tbody = document.getElementById('crawler-tbody');
+    if (tbody) tbody.innerHTML = '';
+    if (typeof _scApplyMultiH1Columns === 'function') _scApplyMultiH1Columns(0);
+    if (_tableWrap) _tableWrap.style.display = 'none';
+    if (_expandHint) _expandHint.style.display = 'none';
+    ['sitemap-panel','schema-by-page-panel','near-dup-panel','sitestructure-panel',
+     'all-images-panel','imgs-missing-alt-panel','external-links-panel','js-diff-panel',
+     'all-values-panel','duplicates-panel',
+     'redir-chains-panel','response-codes-panel','deep-pages-panel','hreflang-panel',
+     'severity-panel','summary-panel']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+    _scRenderImagesMissingAltPanel();
+    const bulkBtn = document.getElementById('crawler-bulk-recrawl-btn');
+    if (bulkBtn) bulkBtn.style.display = 'none';
+    if (typeof _refreshCrawlerExportViewBtn === 'function') _refreshCrawlerExportViewBtn();
+    return;
+  }
+
   const _isReportPanel = (typeof cat === 'string') &&
-    (cat.startsWith('__sm_') || cat === '__schema_by_page' || cat === '__nd_content' || cat === '__sitemap_viz' || cat === '__all_images' || cat === '__external_links' || cat === '__js_diff' || cat === '__all_titles' || cat === '__all_metas' || cat === '__all_h1s' || cat === '__all_canonicals' || cat === '__dup_titles' || cat === '__dup_metas' || cat === '__dup_h1s' || cat === '__dup_bodies' || cat === '__redir_chains' || cat === '__response_codes' || cat === '__deep' || cat === '__hreflang' || cat === '__err' || cat === '__warn' || cat === '__info' || cat === '__summary');
+    (cat.startsWith('__sm_') || cat === '__schema_by_page' || cat === '__nd_content' || cat === '__sitemap_viz' || cat === '__all_images' || cat === '__external_links' || cat === '__js_diff' || cat === '__all_titles' || cat === '__all_metas' || cat === '__all_h1s' || cat === '__all_canonicals' || cat === '__dup_titles' || cat === '__dup_metas' || cat === '__dup_h1s' || cat === '__dup_bodies' || cat === '__redir_chains' || cat === '__traps' || cat === '__response_codes' || cat === '__deep' || cat === '__hreflang' || cat === '__err' || cat === '__warn' || cat === '__info' || cat === '__summary');
   if (_isReportPanel) {
     renderIssueInfo(cat);
     const tbody = document.getElementById('crawler-tbody');
@@ -1206,6 +1249,8 @@ window.selectCategory = function(cat) {
       _scRenderDuplicatesPanel(cat);
     } else if (cat === '__redir_chains') {
       _scRenderRedirChainsPanel();
+    } else if (cat === '__traps') {
+      _scRenderTrapsPanel();
     } else if (cat === '__response_codes') {
       _scRenderResponseCodesPanel();
     } else if (cat === '__deep') {
@@ -1230,9 +1275,9 @@ window.selectCategory = function(cat) {
   // user-reported bug — Summary lingering under Missing Meta Description
   // because 'summary-panel' wasn't in this list).
   ['sitemap-panel','schema-by-page-panel','near-dup-panel','sitestructure-panel',
-   'all-images-panel','external-links-panel','js-diff-panel',
+   'all-images-panel','imgs-missing-alt-panel','external-links-panel','js-diff-panel',
    'all-values-panel','duplicates-panel',
-   'redir-chains-panel','response-codes-panel','deep-pages-panel','hreflang-panel',
+   'redir-chains-panel','traps-panel','response-codes-panel','deep-pages-panel','hreflang-panel',
    'severity-panel','summary-panel']
     .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
   if (_tableWrap) _tableWrap.style.display = '';
@@ -1383,12 +1428,11 @@ window.analyseSitemap = async function(opts) {
 // All Images panel — every meaningful <img> seen during the crawl, grouped
 // by canonical src so a logo used on every page is one row with a "N pages"
 // expander. Filter chips (All / Missing alt / Empty alt in link / Decorative
-// / Has alt) toggle row visibility. Pure crawler data — no AI — so it lives
-// in the public site-crawler. Mirrors seo-tool's _renderAllImagesPanel but
-// without the "Generate in Bulk Image Alt" button (Claude-only feature).
+// / Has alt) toggle row visibility. Pure crawler data — no AI, no external
+// services.
 // =============================================================================
 // JS vs non-JS Diff panel — for crawls run with `Compare with non-JS HTML`.
-// Mirrors seo-tool/_renderJsDiffPanel; pure parsing, no Claude/AI.
+// Pure parsing, no AI.
 // Severity ladder: critical (title/meta/schema), high (h1/word_count),
 // medium (links/images), none (page is server-rendered correctly).
 // =============================================================================
@@ -1529,6 +1573,95 @@ function _scRenderJsDiffPanel() {
   window._scJsDiffFilter = 'all';
 }
 window._scRenderJsDiffPanel = _scRenderJsDiffPanel;
+
+// Image-centric "Images Missing Alt" panel — one row per unique image that
+// needs alt, click to expand the pages (inlinks) that use it + the alt on each.
+// Mirrors Screaming Frog's Images → Inlinks view.
+function _scRenderImagesMissingAltPanel() {
+  const main = document.querySelector('.results-panel') || document.getElementById('crawler-results');
+  if (!main) return;
+  const old = document.getElementById('imgs-missing-alt-panel');
+  if (old) old.remove();
+  const panel = document.createElement('div');
+  panel.id = 'imgs-missing-alt-panel';
+  panel.style.cssText = 'flex:1;overflow:auto;min-height:0;padding:0;font-size:12px;';
+
+  const NEEDS = new Set(['missing', 'empty in link', 'empty (likely content)']);
+  const bySrc = new Map();
+  for (const r of (crawlerResults || [])) {
+    if (!r) continue;
+    const data = (Array.isArray(r.images_all_data) && r.images_all_data.length)
+      ? r.images_all_data
+      : (Array.isArray(r.images_no_alt_data) ? r.images_no_alt_data : []);
+    for (const img of data) {
+      if (!img || !img.src) continue;
+      if (typeof _isThirdPartyWidgetImage === 'function' && _isThirdPartyWidgetImage(img.src)) continue;
+      const cls = img.classification || (img.alt == null ? 'missing' : '');
+      if (!NEEDS.has(cls)) continue;
+      const key = img.src.split('#')[0];
+      let e = bySrc.get(key);
+      if (!e) { e = { src: img.src, classification: cls, pages: [] }; bySrc.set(key, e); }
+      e.pages.push({ url: r.url || '', alt: img.alt === undefined ? null : img.alt });
+    }
+  }
+  const groups = Array.from(bySrc.values()).sort((a, b) => b.pages.length - a.pages.length);
+
+  if (!groups.length) {
+    panel.innerHTML = '<div style="padding:20px;color:var(--text-muted);">No images missing alt text in this crawl. 🎉 (Older crawls predate image capture — re-crawl to populate.)</div>';
+    main.appendChild(panel);
+    return;
+  }
+  const totalRefs = groups.reduce((n, g) => n + g.pages.length, 0);
+  const pathOf = (u) => { try { return new URL(u).pathname || u; } catch { return u; } };
+  const badge = (cls) => {
+    const p = ({
+      'missing':                { bg:'#fee2e2', fg:'#991b1b', label:'no alt attribute' },
+      'empty in link':          { bg:'#fee2e2', fg:'#991b1b', label:'empty alt in link' },
+      'empty (likely content)': { bg:'#fef3c7', fg:'#92400e', label:'empty alt (content image)' },
+    })[cls] || { bg:'#fef3c7', fg:'#92400e', label: cls || 'no alt' };
+    return `<span style="display:inline-block;padding:1px 7px;border-radius:8px;background:${p.bg};color:${p.fg};font-size:10px;font-weight:600;">${p.label}</span>`;
+  };
+  const altCell = (alt) => (alt === undefined || alt === null)
+    ? `<span style="color:#ef4444;font-style:italic;">(no alt attribute)</span>`
+    : (alt === '' ? `<span style="color:#f59e0b;font-style:italic;">(empty alt)</span>`
+                  : `<span style="color:var(--text);">${escapeHtml(alt)}</span>`);
+
+  const rows = groups.map(rec => {
+    const safeSrc = (rec.src || '').replace(/"/g, '&quot;');
+    const fname = (rec.src || '').split('/').pop().split('?')[0] || rec.src;
+    const inlinks = rec.pages.map(pg =>
+      `<div style="display:flex;gap:8px;padding:2px 0;font-size:.72rem;">
+        <a href="${(pg.url || '').replace(/"/g, '&quot;')}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;word-break:break-all;flex:0 0 auto;max-width:50%;" title="${(pg.url || '').replace(/"/g, '&quot;')}">${escapeHtml(pathOf(pg.url) || '/')}</a>
+        <span style="color:var(--text-muted);flex:1;min-width:0;">alt: ${altCell(pg.alt)}</span>
+      </div>`).join('');
+    return `
+      <div style="display:flex;gap:10px;padding:10px 6px;border-bottom:1px solid var(--border);align-items:flex-start;">
+        <a href="${safeSrc}" target="_blank" rel="noopener" title="Open image" style="flex:0 0 auto;">
+          <img src="${safeSrc}" alt="" loading="lazy" onerror="this.style.opacity=.25;this.style.background='var(--surface2)';" style="width:46px;height:46px;object-fit:cover;border-radius:4px;border:1px solid var(--border);background:var(--surface2);"/>
+        </a>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <a href="${safeSrc}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-family:monospace;font-size:.74rem;word-break:break-all;" title="${safeSrc}">${escapeHtml(fname)}</a>
+            ${badge(rec.classification)}
+          </div>
+          <details style="margin-top:5px;font-size:.72rem;" ontoggle="event.stopPropagation();">
+            <summary style="cursor:pointer;color:var(--text-muted);font-weight:600;list-style:revert;">Used on ${rec.pages.length} page${rec.pages.length === 1 ? '' : 's'} (inlinks)</summary>
+            <div style="margin-top:4px;padding-left:8px;border-left:2px solid var(--border);max-height:240px;overflow:auto;">${inlinks}</div>
+          </details>
+        </div>
+      </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
+      <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:4px;">Images missing alt text</div>
+      <div style="font-size:.75rem;color:var(--text-muted);line-height:1.55;">
+        <b>${groups.length}</b> unique image${groups.length === 1 ? '' : 's'} missing alt, used <b>${totalRefs}</b> time${totalRefs === 1 ? '' : 's'} across the site (a logo on every page is one image used many times). Click a row to see which pages use it.
+      </div>
+    </div>
+    <div style="padding:0 10px;">${rows}</div>`;
+  main.appendChild(panel);
+}
 
 function _scRenderAllImagesPanel() {
   const main = document.querySelector('.results-panel') || document.getElementById('crawler-results');
@@ -2507,6 +2640,63 @@ function _scRenderRedirChainsPanel() {
   main.appendChild(panel);
 }
 
+// Soft 404 / URL Trap — post-crawl probe results from reports.url_traps.
+// Two probes: /<token>/ at root (soft-404) and <real page>/<token>/ (nested,
+// the infinite-URL-space case). A 200 on either is a server bug worth a red
+// flag: crawl-budget waste, index bloat, and unbounded bot bandwidth.
+function _scRenderTrapsPanel() {
+  const main = document.querySelector('.results-panel') || document.getElementById('crawler-results');
+  if (!main) return;
+  const old = document.getElementById('traps-panel');
+  if (old) old.remove();
+  const panel = document.createElement('div');
+  panel.id = 'traps-panel';
+  panel.style.cssText = 'flex:1;overflow:auto;min-height:0;padding:0;font-size:12px;';
+
+  const tc = ((window.crawlerReports || {}).url_traps) || {};
+  const probeCard = (p) => `
+    <div style="margin-top:12px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:var(--surface);">
+      <div style="padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:.78rem;">
+        <b>${p.kind === 'root' ? 'Root probe (soft-404 check)' : 'Nested-path probe (infinite URL space check)'}</b>
+        ${p.status === 200
+          ? '<span style="color:#ef4444;font-weight:700;margin-left:8px;">FAILED — returned 200</span>'
+          : `<span style="color:#22c55e;font-weight:700;margin-left:8px;">OK — ${p.status ?? escapeHtml(p.error || '')}</span>`}
+      </div>
+      <div style="padding:8px 14px;font-family:'SF Mono','Menlo',monospace;font-size:.72rem;word-break:break-all;">
+        GET ${escapeHtml(p.url || '')}<br>→ ${p.status ?? escapeHtml(p.error || '')}
+        ${p.title ? `<br>→ &lt;title&gt; ${escapeHtml(p.title)}` : ''}
+        ${p.serves ? `<br>→ ${escapeHtml(p.serves)}` : ''}
+      </div>
+    </div>`;
+
+  if (!tc.checked) {
+    panel.innerHTML = `
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
+        <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:4px;">Not checked on this crawl</div>
+        <div style="font-size:.75rem;color:var(--text-muted);">Re-crawl to run the soft-404 / URL-trap probe — crawls saved before this feature don't carry it.</div>
+      </div>`;
+  } else if (!tc.soft_404 && !tc.nested_trap) {
+    panel.innerHTML = `
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
+        <div style="font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:4px;">✓ Healthy — no soft 404s, no URL trap</div>
+        <div style="font-size:.75rem;color:var(--text-muted);">Both probe URLs were refused (non-200): the server does not serve content for URLs that don't exist.</div>
+      </div>
+      <div style="padding:0 16px 16px;">${(tc.probes || []).map(probeCard).join('')}</div>`;
+  } else {
+    panel.innerHTML = `
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);">
+        <div style="font-size:.9rem;font-weight:600;color:#ef4444;margin-bottom:4px;">${tc.nested_trap ? 'Infinite URL trap detected' : 'Soft 404s detected'}</div>
+        <div style="font-size:.75rem;color:var(--text-muted);line-height:1.55;">
+          This server answers <b>200 OK</b> for URLs that don't exist${tc.nested_trap ? ', including nested paths under real pages. Relative links on the served page resolve one level deeper, so the crawlable URL space is <b>infinite</b>' : ''}.
+          Search engines waste crawl budget on phantom duplicates, and bots/scrapers can crawl forever — on bandwidth-capped hosting this can take the site offline (509 Bandwidth Limit Exceeded).
+          Fix on the server: return <b>404</b> (or 301 to the real page) for any path that doesn't map to real content.
+        </div>
+      </div>
+      <div style="padding:0 16px 16px;">${(tc.probes || []).map(probeCard).join('')}</div>`;
+  }
+  main.appendChild(panel);
+}
+
 // Response Codes — distribution across the crawl. Click a bucket to see
 // the matching URLs (deferred for now: opens a filtered table view).
 function _scRenderResponseCodesPanel() {
@@ -2694,6 +2884,9 @@ function _scRenderSummaryPanel() {
         /^\d+ imgs missing alt|^\d+ imgs with empty alt/i.test(issue)) return ['Images missing alt','imgs missing alt'];
     if (/^HTTP \d{3}/i.test(stripped)) return ['HTTP errors (4xx / 5xx)','HTTP'];
     if (/^URL:/i.test(stripped))       return ['URL hygiene','URL:'];
+    if (/^AI crawlers blocked/i.test(stripped))      return ['AI crawlers blocked in robots.txt','AI crawlers blocked'];
+    if (/^AI training bots blocked/i.test(stripped)) return ['AI training bots blocked in robots.txt','AI training bots blocked'];
+    if (/^Search engines blocked/i.test(stripped))   return ['Search engines blocked in robots.txt','Search engines blocked'];
     return [stripped, stripped];
   };
   const groupsBySev = { error: new Map(), warn: new Map(), info: new Map() };
@@ -2832,6 +3025,9 @@ function _scRenderSeverityPanel(cat) {
     }
     if (/^HTTP \d{3}/i.test(stripped)) return ['HTTP errors (4xx / 5xx)', 'HTTP'];
     if (/^URL:/i.test(stripped))       return ['URL hygiene', 'URL:'];
+    if (/^AI crawlers blocked/i.test(stripped))      return ['AI crawlers blocked in robots.txt', 'AI crawlers blocked'];
+    if (/^AI training bots blocked/i.test(stripped)) return ['AI training bots blocked in robots.txt', 'AI training bots blocked'];
+    if (/^Search engines blocked/i.test(stripped))   return ['Search engines blocked in robots.txt', 'Search engines blocked'];
     return [stripped, stripped];  // fall through: best-effort
   };
 
@@ -3090,8 +3286,7 @@ function _renderSchemaByPagePanel() {
 }
 
 // Schema-by-Page filter handlers — chips OR-filter by type, URL input
-// substring-filters; both AND together. Mirrors seo-tool exactly so the
-// behaviour is consistent across both crawlers.
+// substring-filters; both AND together.
 window._scSchemaPageFilter = window._scSchemaPageFilter || { types: new Set(), q: '' };
 
 window._scSchemaPageApplyFilter = function() {
@@ -3141,7 +3336,7 @@ window._scSchemaPageClearFilters = function() {
 };
 
 // =============================================================================
-// Near-duplicate content detection (mirrors seo-tool, no Claude/AI).
+// Near-duplicate content detection (Shingle Jaccard 5-gram + df=1 filter).
 // =============================================================================
 function _scToggleNearDupCfg(checked) {
   const cfg = document.getElementById('crawler-neardup-cfg');
@@ -3150,7 +3345,6 @@ function _scToggleNearDupCfg(checked) {
 window._scToggleNearDupCfg = _scToggleNearDupCfg;
 
 // Show "Compare with non-JS HTML" sub-checkbox only when Render JS is on.
-// Mirrors the seo-tool helper.
 function _scToggleCompareNoJs(checked) {
   const row = document.getElementById('crawler-compare-no-js-row');
   if (row) row.style.display = checked ? '' : 'none';
@@ -3160,6 +3354,20 @@ function _scToggleCompareNoJs(checked) {
   }
 }
 window._scToggleCompareNoJs = _scToggleCompareNoJs;
+
+function _scToggleCustomUa(value) {
+  const box = document.getElementById('crawler-user-agent-custom');
+  if (!box) return;
+  box.style.display = value === '__custom' ? 'block' : 'none';
+  if (value === '__custom') box.focus();
+}
+window._scToggleCustomUa = _scToggleCustomUa;
+
+function _scSelectedUserAgent() {
+  const sel = document.getElementById('crawler-user-agent')?.value || '';
+  if (sel !== '__custom') return sel;
+  return (document.getElementById('crawler-user-agent-custom')?.value || '').trim();
+}
 
 window.runNearDupAnalysis = async function() {
   const thresholdEl = document.getElementById('crawler-neardup-threshold');
@@ -3532,6 +3740,7 @@ function updateCounts() {
   // come straight from the server reports payload; Deep Pages and Hreflang
   // are derived per-page client-side so they work without server reports.
   if ('__redir_chains'   in counts) counts.__redir_chains   = (_reps.redirect_chains || (_pages.filter(r => (r.redirect_hops || 0) >= 2))).length;
+  if ('__traps'          in counts) counts.__traps          = ((_reps.url_traps || {}).soft_404 ? 1 : 0) + ((_reps.url_traps || {}).nested_trap ? 1 : 0);
   if ('__response_codes' in counts) counts.__response_codes = (_pages.filter(r => r.status_code)).length;
   if ('__deep'           in counts) counts.__deep           = _pages.filter(r => (r.depth || 0) >= 4).length;
   if ('__hreflang' in counts) {
@@ -3681,7 +3890,7 @@ function stopCrawl() {
 // =============================================================================
 // Per-tab Export view + multi-sheet .xlsx workbook export.
 // =============================================================================
-// Mirrors seo-tool's _buildExportForCategory dispatcher: every supported
+// Per-category export dispatcher: every supported
 // crawler tab gets a CSV that's shaped for that tab. Categories absent from
 // site-crawler's UI (no __inlinks/__anchors/__all_titles/__all_metas/
 // __all_h1s/__all_canonicals/__redir_chains/__orphans/__response_codes) are
@@ -3721,6 +3930,35 @@ function _buildExportForCategory(cat) {
       }
     }
     return { header: ['Page URL', 'Image Src', 'Alt', 'Classification', 'Page Title', 'Page H1'], rows };
+  }
+
+  // Images missing alt — IMAGE-centric: one row per (image, inlink page) so the
+  // export mirrors the panel (which page uses the image + the alt there).
+  if (cat === 'imgs missing alt') {
+    const NEEDS = new Set(['missing', 'empty in link', 'empty (likely content)']);
+    const bySrc = new Map();
+    for (const r of crawlerResults) {
+      const data = (Array.isArray(r.images_all_data) && r.images_all_data.length)
+        ? r.images_all_data
+        : (Array.isArray(r.images_no_alt_data) ? r.images_no_alt_data : []);
+      for (const img of data) {
+        if (!img || !img.src) continue;
+        if (typeof _isThirdPartyWidgetImage === 'function' && _isThirdPartyWidgetImage(img.src)) continue;
+        const cls = img.classification || (img.alt == null ? 'missing' : '');
+        if (!NEEDS.has(cls)) continue;
+        const key = img.src.split('#')[0];
+        let e = bySrc.get(key);
+        if (!e) { e = { src: img.src, classification: cls, pages: [] }; bySrc.set(key, e); }
+        e.pages.push({ url: r.url || '', alt: img.alt === undefined ? null : img.alt });
+      }
+    }
+    const groups = Array.from(bySrc.values()).sort((a, b) => b.pages.length - a.pages.length);
+    const rows = [];
+    groups.forEach(g => g.pages.forEach(pg => {
+      rows.push([g.src, g.classification, g.pages.length, pg.url || '',
+                 (pg.alt === undefined || pg.alt === null) ? '' : pg.alt]);
+    }));
+    return { header: ['Image Src', 'Issue', 'Used On (pages)', 'Page URL (inlink)', 'Alt On Page'], rows };
   }
 
   // External Links — every off-domain link with rel + target.
@@ -3823,19 +4061,26 @@ function _buildExportForCategory(cat) {
     const header = ['Source URL', 'Anchor Text', 'Target URL', 'Target Status', 'Target Title', 'Issue'];
     const rows = [];
     filtered.forEach(d => {
+      // For redirects, the linked (target) URL is the redirecting original_url,
+      // and its inbound links are keyed there too — not the destination. The
+      // meaningful status is the 3xx code, not the followed 200.
+      const isRedirect = cat === 'Redirect';
+      const targetUrl = (isRedirect && d.original_url && d.original_url !== d.url) ? d.original_url : d.url;
+      const rs = isRedirect ? _scRedirectStatus(d) : null;
+      const targetStatus = isRedirect ? (rs || d.status_code || '') : (d.status_code || '');
       const inlinks = (typeof getInlinksFor === 'function')
-        ? getInlinksFor(d.url)
-        : ((crawlerInlinks && (crawlerInlinks[d.url] || crawlerInlinks[d.url.replace(/\/$/, '')] || crawlerInlinks[d.url + '/'])) || []);
+        ? getInlinksFor(targetUrl)
+        : ((crawlerInlinks && (crawlerInlinks[targetUrl] || crawlerInlinks[targetUrl.replace(/\/$/, '')] || crawlerInlinks[targetUrl + '/'])) || []);
       const issueLabel = cat === 'HTTP'
         ? `Broken (${d.status_code || ''})`
-        : (d.redirect_kind || 'Redirect');
+        : `${rs || '3xx'} ${d.redirect_kind || 'redirect'} → ${d.redirect_url || ''}`;
       if (!inlinks.length) {
-        rows.push(['', '', d.url, d.status_code || '', d.title || '', issueLabel]);
+        rows.push(['', '', targetUrl, targetStatus, d.title || '', issueLabel]);
       } else {
         inlinks.forEach(e => {
           const src    = (typeof e === 'string') ? e : (e.source || '');
           const anchor = (typeof e === 'string') ? '' : (e.anchor || '');
-          rows.push([src, anchor, d.url, d.status_code || '', d.title || '', issueLabel]);
+          rows.push([src, anchor, targetUrl, targetStatus, d.title || '', issueLabel]);
         });
       }
     });
@@ -3951,8 +4196,7 @@ async function exportCrawlerXlsx() {
   const lbl = btn ? btn.querySelector('span') : null;
   if (btn) { btn.disabled = true; if (lbl) lbl.textContent = 'Exporting…'; }
   try {
-    // Build extra sheets for every supported tab. Mirrors seo-tool's
-    // exportCrawlerXlsx but only with categories site-crawler exposes.
+    // Build extra sheets for every supported tab, one per exposed category.
     const extraSheets = [];
     const cats = [
       ['__all_images',    'All Images'],
@@ -4408,20 +4652,52 @@ function _scApplyMultiH1Columns(n) {
   }
   if (typeof _scSyncTableWidth === 'function') _scSyncTableWidth();
 }
-// Redirect destination cell. Shows the full target URL of a 3xx redirect.
-// Default-hidden for most categories; shown in the Redirect view.
+// The real 3xx status code (301/302/307/308) for a redirected row. The row's
+// own status_code is the FINAL 200 because the crawler follows redirects, so
+// pull the first hop. Falls back to redirect_chain[0] for crawls saved before
+// the redirect_status field existed.
+function _scRedirectStatus(d) {
+  if (d && d.redirect_status) return d.redirect_status;
+  if (d && Array.isArray(d.redirect_chain) && d.redirect_chain[0] && d.redirect_chain[0].status) {
+    const s = d.redirect_chain[0].status;
+    return (s >= 300 && s < 400) ? s : null;
+  }
+  return null;
+}
+// Returns {code, name, color} for a 3xx status. Permanent (301/308) reads
+// neutral-blue; temporary (302/307/303) reads amber because a temp redirect
+// where a permanent one belongs is a common SEO leak.
+function _scRedirectStatusMeta(code) {
+  const names = {
+    301: 'Moved Permanently', 302: 'Found (Temporary)', 303: 'See Other',
+    307: 'Temporary Redirect', 308: 'Permanent Redirect',
+  };
+  const permanent = code === 301 || code === 308;
+  return {
+    code,
+    name: names[code] || `${code} Redirect`,
+    color: code ? (permanent ? '#2563eb' : '#f59e0b') : '#94a3b8',
+  };
+}
+// Redirect destination cell. Shows the real 3xx code (301/302) plus the full
+// target URL. Default-hidden for most categories; shown in the Redirect view.
 function _scRedirToCell(d) {
   const to = d.redirect_url || '';
   const hops = d.redirect_hops || 0;
   if (!to) return '<td data-col="redirto"><em style="color:var(--text-muted)">—</em></td>';
   const safe = escapeHtml(to);
+  const rs = _scRedirectStatus(d);
+  const m = _scRedirectStatusMeta(rs);
+  const pill = rs ? `<span style="background:${m.color};color:#fff;padding:0 6px;border-radius:8px;font-size:10.5px;font-weight:700;margin-right:5px;" title="${m.name}">${rs}</span>` : '';
   const hopBadge = hops > 1 ? ` <span style="color:var(--text-muted);font-size:.7rem">(${hops} hops)</span>` : '';
-  return `<td data-col="redirto" title="${safe}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${safe}${hopBadge}</td>`;
+  return `<td data-col="redirto" title="${rs ? rs + ' ' + m.name + ' → ' : ''}${safe}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${pill}${safe}${hopBadge}</td>`;
 }
-// Inlinks count cell — number of internal pages linking to this URL.
-// Useful in Redirect view to show which redirects still have inbound link debt.
+// Inlinks count cell — number of internal pages linking to this URL. For
+// redirected rows, inbound links live under the redirecting original_url, not
+// the destination the row was rewritten to.
 function _scInlinksCell(d) {
-  const n = (typeof _scLookupInlinks === 'function') ? _scLookupInlinks(d.url).length : 0;
+  const lookupUrl = (d.original_url && d.original_url !== d.url) ? d.original_url : d.url;
+  const n = (typeof _scLookupInlinks === 'function') ? _scLookupInlinks(lookupUrl).length : 0;
   if (!n) return '<td data-col="inlinks" style="text-align:center;color:var(--text-muted)">0</td>';
   return `<td data-col="inlinks" style="text-align:center;font-weight:600">${n}</td>`;
 }
@@ -4457,7 +4733,7 @@ function _scSetColumns(cat) {
   if (cat === 'Slow') return show(['url','status','speed','issues']);
   if (cat === 'Redirect') return show(['url','status','redirto','inlinks','issues']);
   // Image alt is image-level, not page-level — page Title is just noise on
-  // this view. Mirrors seo-tool's treatment.
+  // this view.
   if (cat === 'imgs missing alt') return show(['url','status','issues']);
   // Severity views (Errors / Warnings / Info) — without an explicit show()
   // every column renders, pushing Issues off the right edge and forcing a
@@ -4642,7 +4918,7 @@ function _scSetColumns(cat) {
 })();
 
 // =============================================================================
-// Save / Load / Compare crawl sessions  (port of seo-tool's save+compare)
+// Save / Load / Compare crawl sessions
 // Crawls are persisted to ~/.site-crawler-crawls/ on the host — never committed.
 // =============================================================================
 if (typeof window.showToast !== 'function') {
@@ -4731,7 +5007,7 @@ function openCrawlLoader(opts) {
           <div style="color:var(--text-muted);font-variant-numeric:tabular-nums;font-family:'SF Mono','Menlo',monospace;">${timeStr}</div>
           <div style="min-width:0;">
             <div style="font-weight:600;color:var(--bw-ink);word-break:break-all;">${seed || c.name}
-              ${c.source === 'seo-tool' ? '<span title="Saved in seo-tool" style="display:inline-block;margin-left:6px;padding:1px 6px;background:var(--bw-brand-tint-10);color:var(--bw-brand-600);border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">seo-tool</span>' : ''}
+              ${c.source && c.source !== 'site-crawler' ? '<span title="Saved by another local tool" style="display:inline-block;margin-left:6px;padding:1px 6px;background:var(--bw-brand-tint-10);color:var(--bw-brand-600);border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">' + c.source + '</span>' : ''}
               ${c.source === 'site-crawler' ? '<span title="Saved in site-crawler" style="display:inline-block;margin-left:6px;padding:1px 6px;background:var(--bw-brand-tint-10);color:var(--bw-brand-600);border-radius:3px;font-size:9.5px;font-weight:600;vertical-align:middle;">site-crawler</span>' : ''}
             </div>
             <div style="font-size:10px;color:var(--text-muted);word-break:break-all;">${c.name}</div>
@@ -5242,7 +5518,6 @@ window._compareToggleIssueDrill = function(idx) {
 // =============================================================================
 // Site Structure visualisation — sunburst (radial directory hierarchy),
 // hierarchy text tree, and anchor-text cloud. Pure SVG, no external libs.
-// Mirrors the implementation in seo-tool/static/script.js.
 // =============================================================================
 
 window._svView = window._svView || 'sunburst';
@@ -5947,6 +6222,126 @@ function _scRenderAnchorTextCloud() {
     </div>`;
 }
 
+// ── Crawl Budget view ──────────────────────────────────────────────────────
+// On-demand scan that finds URL-parameter traps wasting crawl budget and emits
+// ready-to-paste robots.txt Disallow rules. Backend: POST /crawl-budget/analyze
+function scShowView(view) {
+  const main = document.querySelector('main.wrap');
+  const cb = document.getElementById('cb-view');
+  const crawlerBtn = document.getElementById('sc-view-crawler-btn');
+  const budgetBtn = document.getElementById('sc-view-budget-btn');
+  const onBudget = view === 'budget';
+  if (main) main.style.display = onBudget ? 'none' : '';
+  if (cb) cb.style.display = onBudget ? 'block' : 'none';
+  if (crawlerBtn) crawlerBtn.classList.toggle('active', !onBudget);
+  if (budgetBtn) budgetBtn.classList.toggle('active', onBudget);
+}
+
+(function () {
+  const TYPE_COLORS = {
+    pagination: '#7c3aed', faceting: '#2563eb', sort: '#d97706',
+    tracking: '#dc2626', session: '#dc2626', search: '#64748b', parameter: '#64748b',
+  };
+  const esc = (s) => (typeof escapeHtml === 'function')
+    ? escapeHtml(String(s == null ? '' : s))
+    : String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  function stat(label, value, accent) {
+    return `<div class="cb-stat"><div class="v" style="color:${accent || 'var(--text)'};">${esc(String(value))}</div><div class="l">${esc(label)}</div></div>`;
+  }
+
+  function render(res) {
+    document.getElementById('cb-results').style.display = 'block';
+    document.getElementById('cb-summary').innerHTML =
+      stat('Real pages (sitemap)', res.real_count ? res.real_count.toLocaleString() : '—') +
+      stat('Pages scanned', res.pages_scanned) +
+      stat('Trap parameters', res.trap_count, res.trap_count ? '#dc2626' : '#059669') +
+      stat('Params found', res.params.length);
+
+    const paramsEl = document.getElementById('cb-params');
+    const robotsEl = document.getElementById('cb-robots');
+    if (!res.params.length) {
+      paramsEl.innerHTML = `<div class="cb-card" style="text-align:center;color:#059669;font-weight:600;">✓ No URL-parameter traps found — your pages map cleanly to ${res.real_count ? res.real_count.toLocaleString() : 'the'} sitemap URLs.</div>`;
+      robotsEl.innerHTML = '';
+      return;
+    }
+    const rows = res.params.map(p => {
+      const color = TYPE_COLORS[p.type] || '#64748b';
+      const depth = p.max_num >= 2 ? `up to page ${p.max_num.toLocaleString()}` : '—';
+      const ex = (p.examples[0] || '').replace(/^https?:\/\/[^/]+/, '');
+      return `<tr>
+        <td style="font-family:monospace;font-size:12px;font-weight:600;">?${esc(p.key)}</td>
+        <td><span class="cb-badge" style="background:${color}22;color:${color};">${esc(p.type)}</span></td>
+        <td style="text-align:right;font-size:12px;">${p.count.toLocaleString()}</td>
+        <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;">${esc(depth)}</td>
+        <td style="font-size:11px;color:var(--text-muted);font-family:monospace;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p.why)}">${esc(ex)}</td>
+        <td style="text-align:center;">${p.trap
+          ? '<span style="color:#dc2626;font-weight:700;font-size:11px;">Disallow</span>'
+          : '<span style="color:var(--text-muted);font-size:11px;">keep</span>'}</td>
+      </tr>`;
+    }).join('');
+    paramsEl.innerHTML = `
+      <table class="cb-table">
+        <thead><tr>
+          <th>Parameter</th><th>Type</th><th style="text-align:right;">URLs seen</th>
+          <th>Depth</th><th>Example</th><th style="text-align:center;">Action</th>
+        </tr></thead><tbody>${rows}</tbody>
+      </table>
+      <div class="cb-note">"URLs seen" is from a ${res.pages_scanned}-page sample — the live count across the whole site is typically far higher. "Depth" shows the highest page number a single listing links to.</div>`;
+
+    if (res.robots_block) {
+      robotsEl.innerHTML = `
+        <div class="cb-robots-head"><h3>robots.txt — add these rules</h3>
+          <button id="cb-copy-btn" type="button" class="cb-copy-btn">Copy</button></div>
+        <pre class="cb-pre">${esc(res.robots_block)}</pre>
+        <div class="cb-note">Add these to your site's <code>/robots.txt</code> (merge into the existing <code>User-agent: *</code> block if you have one). Re-crawl after — the queue should track your real page count instead of exploding.</div>`;
+      const cp = document.getElementById('cb-copy-btn');
+      if (cp) cp.addEventListener('click', () => {
+        navigator.clipboard.writeText(res.robots_block).then(
+          () => { cp.textContent = 'Copied ✓'; setTimeout(() => cp.textContent = 'Copy', 1500); },
+          () => { if (typeof showToast === 'function') showToast('Copy failed', 'error'); });
+      });
+    } else {
+      robotsEl.innerHTML = '';
+    }
+  }
+
+  async function analyze() {
+    const input = document.getElementById('cb-url');
+    const btn = document.getElementById('cb-analyze-btn');
+    const status = document.getElementById('cb-status');
+    const url = (input.value || '').trim();
+    if (!url) { status.textContent = 'Enter a URL first.'; return; }
+    btn.disabled = true;
+    status.textContent = 'Scanning homepage and section pages… (10–20s)';
+    document.getElementById('cb-results').style.display = 'none';
+    try {
+      const r = await fetch('/crawl-budget/analyze', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || ('HTTP ' + r.status));
+      status.textContent = `Scanned ${data.pages_scanned} pages of ${data.url}.`;
+      render(data);
+    } catch (e) {
+      status.textContent = 'Scan failed: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function wire() {
+    const btn = document.getElementById('cb-analyze-btn');
+    const input = document.getElementById('cb-url');
+    if (!btn || btn._cbWired) return;
+    btn._cbWired = true;
+    btn.addEventListener('click', analyze);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') analyze(); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
+  else wire();
+})();
 // ── Saved Strategies list ─────────────────────────────────────
 let _savedStrategiesData = [];
 
