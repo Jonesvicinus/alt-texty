@@ -31,3 +31,10 @@ ACCESS_URLS.txt
 autostart.log
 install.log
 install.ps1
+.venv
+docs/
+
+# Impeccable design skill context files — local only
+.impeccable/
+DESIGN.md
+PRODUCT.md
