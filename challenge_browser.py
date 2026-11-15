@@ -40,6 +40,7 @@ import os
 import queue as _queue
 import re
 import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import Future
@@ -169,14 +170,21 @@ class ChallengeBrowser:
         xvfb = browser = ctx = pw = None
         try:
             from playwright.sync_api import sync_playwright
-            xvfb, display = self._start_xvfb()
-            if not display:
-                raise RuntimeError('Xvfb unavailable - install xvfb for challenge fallback')
-            env = dict(os.environ)
-            env['DISPLAY'] = display
-            pw = sync_playwright().start()
             args = ['--no-sandbox', '--disable-dev-shm-usage',
                     '--disable-blink-features=AutomationControlled']
+            if sys.platform == 'win32':
+                # No Xvfb on Windows. Still headed (that is what clears the
+                # challenge), opened off-screen; under the scheduled task it
+                # runs in session 0, so nothing reaches anyone's desktop.
+                env = None
+                args.append('--window-position=-2400,-2400')
+            else:
+                xvfb, display = self._start_xvfb()
+                if not display:
+                    raise RuntimeError('Xvfb unavailable - install xvfb for challenge fallback')
+                env = dict(os.environ)
+                env['DISPLAY'] = display
+            pw = sync_playwright().start()
             try:
                 browser = pw.chromium.launch(headless=False, channel='chrome',
                                              args=args, env=env)

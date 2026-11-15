@@ -13,7 +13,9 @@
 #      failure is diagnosable instead of invisible.
 param(
     [int]$OldPid = 0,
-    [int]$Port = 5002
+    [int]$Port = 5002,
+    # Interpreter the running app was using; only used when there is no venv.
+    [string]$Python = ''
 )
 $ErrorActionPreference = 'Continue'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -31,7 +33,17 @@ if ((Test-Path $log) -and ((Get-Item $log).Length -gt 200KB)) {
 $pyw   = Join-Path $root 'venv\Scripts\pythonw.exe'
 $py    = Join-Path $root 'venv\Scripts\python.exe'
 $appPy = Join-Path $root 'app.py'
+if (-not (Test-Path $py) -and $Python -and (Test-Path $Python)) {
+    # No venv (system-Python install): use the interpreter the app ran on.
+    # pythonw for the silent starts, its python.exe sibling for the logged one.
+    $dir = Split-Path -Parent $Python
+    $pyw = Join-Path $dir 'pythonw.exe'
+    $py  = Join-Path $dir 'python.exe'
+    if (-not (Test-Path $pyw)) { $pyw = $Python }
+    if (-not (Test-Path $py))  { $py  = $Python }
+}
 if (-not (Test-Path $pyw)) { $pyw = $py }
+Log ("python: " + $pyw)
 
 Log ("restart helper begin (OldPid=" + $OldPid + " Port=" + $Port + ")")
 

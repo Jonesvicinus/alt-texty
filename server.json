@@ -1,0 +1,32 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.puneetindersingh/open-seo-crawler",
+  "title": "Open SEO Crawler",
+  "description": "Self-hosted SEO crawler: run site audits and AI crawler checks, then read the issues and pages.",
+  "repository": {
+    "url": "https://github.com/puneetindersingh/open-seo-crawler",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/puneetindersingh/open-seo-crawler#use-it-from-an-ai-assistant-mcp-or-the-command-line",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/puneetindersingh/open-seo-crawler/master/mcpb/icon.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/puneetindersingh/open-seo-crawler/releases/download/mcp-v1.0.0/open-seo-crawler-mcp.mcpb",
+      "version": "1.0.0",
+      "fileSha256": "b858e554bd585e919f3eefe4e74dfb37324dba9ddc29c37fbcf86d6e25c836e3",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

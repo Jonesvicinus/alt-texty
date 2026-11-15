@@ -1,0 +1,70 @@
+{
+  "manifest_version": "0.3",
+  "name": "open-seo-crawler",
+  "display_name": "Open SEO Crawler",
+  "version": "1.0.0",
+  "description": "Run technical SEO crawls and AI crawler readability checks with the free, self-hosted Open SEO Crawler, then read the results.",
+  "long_description": "Lets your AI assistant drive Open SEO Crawler, the free self-hosted SEO crawler: start a crawl and follow it, read the issue summary grouped into errors, warnings and info, filter pages by issue, open one page with its inlinks, compare two crawls, check how Googlebot, Bingbot and the AI crawlers see any URL, read robots.txt and export to Excel.\n\nNeeds Open SEO Crawler installed and running on this computer (one-line installers for Linux, macOS and Windows in the repository). The extension talks only to that local crawler; the crawler fetches the sites you ask it to crawl and calls no AI itself.",
+  "author": {
+    "name": "Puneet Singh",
+    "url": "https://github.com/puneetindersingh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/puneetindersingh/open-seo-crawler"
+  },
+  "homepage": "https://github.com/puneetindersingh/open-seo-crawler",
+  "documentation": "https://github.com/puneetindersingh/open-seo-crawler#use-it-from-an-ai-assistant-mcp-or-the-command-line",
+  "support": "https://github.com/puneetindersingh/open-seo-crawler/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": ["seo", "crawler", "site audit", "technical seo", "ai crawlers", "robots.txt", "sitemap", "screaming frog alternative"],
+  "server": {
+    "type": "python",
+    "entry_point": "server/mcp_server.py",
+    "mcp_config": {
+      "command": "python3",
+      "args": ["${__dirname}/server/mcp_server.py"],
+      "env": {
+        "OSC_URL": "${user_config.crawler_url}"
+      },
+      "platform_overrides": {
+        "win32": {
+          "command": "py",
+          "args": ["-3", "${__dirname}/server/mcp_server.py"]
+        }
+      }
+    }
+  },
+  "user_config": {
+    "crawler_url": {
+      "type": "string",
+      "title": "Crawler address",
+      "description": "Where Open SEO Crawler is running. Leave the default unless you moved it to another port or machine.",
+      "default": "http://127.0.0.1:5002",
+      "required": false
+    }
+  },
+  "tools": [
+    {"name": "start_crawl", "description": "Crawl a website with the crawler's engine and defaults; returns a job id"},
+    {"name": "crawl_status", "description": "Progress of a crawl, and the saved crawl once it is done"},
+    {"name": "stop_crawl", "description": "Stop a crawl and keep the pages fetched so far"},
+    {"name": "list_crawls", "description": "Saved crawls from the last 30 days"},
+    {"name": "crawl_summary", "description": "Issues by severity with page counts, duplicates, redirects, sitemap gaps, bot readability"},
+    {"name": "get_pages", "description": "Pages of a crawl filtered by issue, severity, status, URL or indexability"},
+    {"name": "get_page", "description": "One URL in full, with the internal links pointing at it"},
+    {"name": "get_brief", "description": "The crawl as a Markdown audit brief"},
+    {"name": "compare_crawls", "description": "What changed between two crawls of a site"},
+    {"name": "bot_check", "description": "How search, AI search, AI assistant and training crawlers see any URL"},
+    {"name": "check_robots", "description": "A site's robots.txt, parsed"},
+    {"name": "detect_cms", "description": "The CMS behind a URL and suggested crawl settings"},
+    {"name": "export_xlsx", "description": "Write a crawl to an .xlsx file"}
+  ],
+  "tools_generated": false,
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  }
+}

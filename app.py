@@ -9,6 +9,7 @@ Features:
   - Concurrent threaded crawl with per-host politeness
   - CMS detection (Shopify, WordPress + Yoast/Rank Math, Webflow, Wix, Squarespace, etc.)
   - Retry on 429 / 5xx / connection errors with exponential backoff
+  - Latency-aware pacing: requests are spaced out on a host that answers slowly
   - Duplicate title / meta / H1 / body detection
   - Orphan page detection (sitemap vs crawled URLs)
   - Redirect chain detection
@@ -20,8 +21,10 @@ import requests
 import json
 import os
 import re as _re
+import sys
 import time
 import logging
+import queue
 import threading
 from collections import deque, defaultdict as _dd
 from urllib.parse import urlparse, urljoin, urlunparse, parse_qs, urlencode
@@ -29,6 +32,9 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
 load_dotenv()
+
+import page_checks   # extra per-page crawler checks (pure, offline-testable)
+import crawl_throttle   # Retry-After parsing + latency-aware pacing (pure, offline-testable)
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # Behind Caddy (tailnet hosting): trust one proxy hop so request.remote_addr is
@@ -43,6 +49,30 @@ from keyword_strategy import strategy_bp
 app.register_blueprint(strategy_bp)
 if not os.environ.get("OPENAI_API_KEY"):
     logging.warning("OPENAI_API_KEY not set — /generate-alt will not work")
+
+
+@app.before_request
+def _refuse_cross_site_writes():
+    """Refuse state-changing requests a browser sent from another site.
+
+    The app has no login and listens on the LAN, and its POST routes pull
+    code, restart the process, start crawls and delete saved crawls. Any web
+    page the user has open could post to them: /update and /restart take no
+    body, so a plain form post reaches them with no CORS preflight. Browsers
+    label such requests (Sec-Fetch-Site, Origin), so anything not from this
+    app's own pages is refused. Scripts and curl send neither header and are
+    unaffected, and so are teammates opening the app by its LAN address.
+    """
+    if request.method in ('GET', 'HEAD', 'OPTIONS'):
+        return None
+    fetch_site = (request.headers.get('Sec-Fetch-Site') or '').lower()
+    if fetch_site and fetch_site not in ('same-origin', 'none'):
+        return jsonify({'ok': False, 'error': 'Refused: the request came from another site.'}), 403
+    origin = request.headers.get('Origin')
+    if origin is not None:
+        if origin == 'null' or urlparse(origin).netloc.lower() != (request.host or '').lower():
+            return jsonify({'ok': False, 'error': 'Refused: the request came from another site.'}), 403
+    return None
 
 # crawl_id -> {'include': [patterns], 'exclude': [patterns]}. Workers read on
 # every URL so the Apply button can mutate rules mid-crawl. Replace list refs
@@ -61,6 +91,49 @@ ACTIVE_CRAWL_LIMITS = {}
 # older than SUSPENDED_CRAWL_TTL on access.
 SUSPENDED_CRAWLS = {}
 SUSPENDED_CRAWL_TTL = 30 * 60  # 30 minutes
+
+
+# A typed URL that already names its scheme. startswith('http') was used
+# before, which mistook a bare domain such as httparchive.org for a full URL
+# and sent it off with no scheme at all.
+_HAS_SCHEME_RE = _re.compile(r'^https?://', _re.I)
+
+_META_CHARSET_RE = _re.compile(rb'<meta[^>]+charset\s*=\s*["\']?\s*([A-Za-z0-9_.:-]+)', _re.I)
+
+
+def _filename_host(domain):
+    """Host part for an export file name. The UI may send an origin such as
+    https://www.example.com, which used to come out as httpsexample.com."""
+    d = (domain or '').strip()
+    host = urlparse(d).netloc if '://' in d else d.split('/')[0]
+    host = host.lower().lstrip('.')
+    if host.startswith('www.'):
+        host = host[4:]
+    return _re.sub(r'[^a-z0-9.-]', '', host.replace(':', '-'))
+
+
+def _decoded_html(resp):
+    """Body of an HTML response, decoded the way a browser decodes it.
+
+    requests falls back to ISO-8859-1 for any text/* response whose
+    Content-Type names no charset (an old HTTP/1.1 default; nginx sends
+    plain "text/html" out of the box). A UTF-8 "Café" then reads "CafÃ©"
+    in titles, metas and H1s, and every length check counts the extra
+    bytes. Browsers use a byte-order mark, then <meta charset>, and
+    otherwise assume UTF-8, so this does the same.
+    """
+    ctype = (resp.headers.get('Content-Type') or '').lower()
+    if 'charset=' in ctype:
+        return resp.text
+    raw = resp.content or b''
+    if raw.startswith(b'\xef\xbb\xbf'):
+        return raw[3:].decode('utf-8', errors='replace')
+    m = _META_CHARSET_RE.search(raw[:4096])
+    enc = m.group(1).decode('ascii', 'ignore') if m else 'utf-8'
+    try:
+        return raw.decode(enc, errors='replace')
+    except LookupError:
+        return raw.decode('utf-8', errors='replace')
 
 
 def _http_get(url, **kwargs):
@@ -148,45 +221,20 @@ def _build_robots_checker(robots_text):
     (which is already Google-spec) and apply longest-pattern-wins so a
     more specific Allow can lift a broader Disallow.
 
-    Reads the User-agent: * block only - we crawl as a generic bot.
+    Reads the User-agent: * rules only - we crawl as a generic bot. Groups
+    come from _parse_robots_groups, which keeps stacked User-agent lines
+    together: a group written "User-agent: *" then "User-agent: Googlebot"
+    above its rules used to lose those rules here, because the second line
+    switched the * group off before any rule was read.
     """
     if not robots_text:
         return lambda u: True
-    allows, disallows = [], []
-    in_star_block = False
-    for line in robots_text.splitlines():
-        line = line.split('#', 1)[0].strip()
-        if not line or ':' not in line:
-            continue
-        key, _, value = line.partition(':')
-        key = key.strip().lower()
-        value = value.strip()
-        if key == 'user-agent':
-            in_star_block = (value == '*')
-            continue
-        if not in_star_block:
-            continue
-        if key == 'disallow' and value:
-            disallows.append(value)
-        elif key == 'allow' and value:
-            allows.append(value)
+    allows, disallows = _robots_rules_for(_parse_robots_groups(robots_text), '*')
     if not disallows and not allows:
         return lambda u: True
-
-    def can_fetch(url):
-        best_allow = -1
-        best_disallow = -1
-        for a in allows:
-            if len(a) > best_allow and _robots_pattern_match(a, url):
-                best_allow = len(a)
-        for d in disallows:
-            if len(d) > best_disallow and _robots_pattern_match(d, url):
-                best_disallow = len(d)
-        # Tie or longer Allow wins; only block when Disallow is strictly
-        # more specific. This matches Google's robots.txt parser.
-        return best_disallow <= best_allow
-
-    return can_fetch
+    # Tie or longer Allow wins; only block when Disallow is strictly more
+    # specific. This matches Google's robots.txt parser.
+    return lambda url: _robots_allows(allows, disallows, url)
 
 
 # Well-known AI crawler user-agents (2026), split by what blocking them costs.
@@ -233,7 +281,14 @@ def _parse_robots_groups(robots_text):
     groups = {}
     current = []
     starting_group = True
-    for raw in (robots_text or '').splitlines():
+    # A byte order mark glued to the first line hides it: "\ufeffUser-agent: *"
+    # is not a User-agent line, so the whole first group used to be dropped and
+    # its Disallow rules ignored. Also arrives as "ï»¿" when the file is served
+    # without a charset and decoded as Latin-1.
+    robots_text = (robots_text or '').lstrip('\ufeff')
+    if robots_text.startswith('\u00ef\u00bb\u00bf'):
+        robots_text = robots_text[3:]
+    for raw in robots_text.splitlines():
         line = raw.split('#', 1)[0].strip()
         if not line or ':' not in line:
             continue
@@ -315,9 +370,9 @@ def _analyze_robots_txt(robots_text):
             if len(ai_names) > 10:
                 shown.append(f'+{len(ai_names) - 10} more')
             tail = ' (+ Content-Signal ai-input=no)' if input_signal else ''
-            issues.append('AI crawlers blocked in robots.txt — ' + ', '.join(shown) + tail)
+            issues.append('AI crawlers blocked in robots.txt: ' + ', '.join(shown) + tail)
         else:
-            issues.append('AI crawlers blocked in robots.txt — Content-Signal set to ai-input "no"')
+            issues.append('AI crawlers blocked in robots.txt: Content-Signal set to ai-input "no"')
 
     # Training-only crawlers — blocking these does not affect AI answer
     # visibility; usually deliberate. Info-level note, distinct issue string.
@@ -325,18 +380,18 @@ def _analyze_robots_txt(robots_text):
     if train_names or train_signal:
         if train_names:
             tail = ' (+ Content-Signal ai-train=no)' if train_signal else ''
-            issues.append('AI training bots blocked in robots.txt — ' + ', '.join(train_names) + tail
-                          + ' — training/data-collection only; AI answer visibility is not affected')
+            issues.append('AI training bots blocked in robots.txt: ' + ', '.join(train_names) + tail
+                          + '. Training/data-collection only; AI answer visibility is not affected')
         else:
-            issues.append('AI training bots blocked in robots.txt — Content-Signal ai-train=no'
-                          + ' — training opt-out only; AI answer visibility is not affected')
+            issues.append('AI training bots blocked in robots.txt: Content-Signal ai-train=no'
+                          + '. Training opt-out only; AI answer visibility is not affected')
 
     # Classic search engines.
     blocked_se = [ua for ua in _SEARCH_ENGINE_UAS if is_blocked(ua)]
     if blocked_se:
-        issues.append('Search engines blocked in robots.txt — ' + ', '.join(blocked_se))
+        issues.append('Search engines blocked in robots.txt: ' + ', '.join(blocked_se))
     elif _robots_root_blocked(star):
-        issues.append('Search engines blocked in robots.txt — User-agent: * Disallow: /')
+        issues.append('Search engines blocked in robots.txt: User-agent: * Disallow: /')
 
     return issues
 
@@ -397,10 +452,11 @@ STATIC_VERSION = str(int(time.time()))
 
 
 def _local_commit_sha():
-    """Short SHA of the currently-installed build, or 'dev' if not a
-    git checkout. Resolved per-call (not cached at startup) so devs
-    don't get a stale 'update available' banner the moment they push
-    a commit without restarting the dev server."""
+    """Short SHA of the code on disk, or 'dev' if not a git checkout.
+    This can move ahead of the running process (a pull by the daily
+    updater or by hand, a local commit), so the version badge uses
+    _BOOT_SHA for "what is running" and this only to spot a pending
+    restart."""
     try:
         import subprocess as _sp
         out = _sp.run(['git', '-C', os.path.dirname(os.path.abspath(__file__)),
@@ -411,6 +467,12 @@ def _local_commit_sha():
     except Exception:
         pass
     return 'dev'
+
+
+# The build this process actually loaded. Compared against the disk SHA so a
+# pulled-but-not-restarted install reports itself as stale instead of
+# "Up to date" while still running the old code.
+_BOOT_SHA = _local_commit_sha()
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +487,7 @@ _CB_PARAM_RULES = [
     (lambda k: k.startswith('e-page-'),            'pagination', 'Elementor Pro Posts/Loop AJAX pagination'),
     (lambda k: k.startswith('e-filter-'),          'faceting',   'Elementor Pro taxonomy filter'),
     (lambda k: k in ('page', 'paged', 'pg', 'pagenum', 'start', 'offset'), 'pagination', 'Pagination parameter'),
-    (lambda k: k in ('orderby', 'order', 'sort', 'sort_by', 'sortby'),     'sort',       'Result sorting — duplicate views of the same set'),
+    (lambda k: k in ('orderby', 'order', 'sort', 'sort_by', 'sortby'),     'sort',       'Result sorting: duplicate views of the same set'),
     (lambda k: k in ('filter', 'filters', 'filter_by') or k.startswith('filter_') or k.endswith('_filter') or k.startswith('pa_') or k in ('color', 'colour', 'size', 'brand', 'min_price', 'max_price', 'swoof', 'jsf'), 'faceting', 'Faceted navigation filter'),
     (lambda k: k.startswith('utm_') or k in ('gclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid', 'yclid'), 'tracking', 'Campaign / click tracking tag'),
     (lambda k: k in ('replytocom', 'phpsessid', 'sessionid', 'sid', 'jsessionid'), 'session', 'Session / comment-reply parameter'),
@@ -465,6 +527,12 @@ def _cb_fetch_sitemap_urls(base_url, ua):
             if r.status_code != 200:
                 return
             c = r.text
+            # A .xml.gz sitemap served as a file arrives still compressed
+            # (no Content-Encoding header for requests to undo). Spot the
+            # gzip magic bytes and inflate it, or its URLs are never counted.
+            if r.content[:2] == b'\x1f\x8b':
+                import gzip
+                c = gzip.decompress(r.content).decode('utf-8', errors='ignore')
             if '<sitemapindex' in c:
                 for m in _re.findall(r'<loc>\s*(.*?)\s*</loc>', c):
                     parse(_html2.unescape(m.strip()), depth + 1)
@@ -502,7 +570,7 @@ def _analyze_crawl_budget(start_url, max_pages=14, timeout=10):
     query-parameter, classify crawl-budget traps, return robots.txt rules."""
     import html as _html2
     from urllib.parse import urlparse, urljoin, parse_qsl
-    if not start_url.startswith('http'):
+    if not _HAS_SCHEME_RE.match(start_url):
         start_url = 'https://' + start_url
     pu = urlparse(start_url)
     host = pu.netloc.replace('www.', '')
@@ -580,7 +648,7 @@ def _analyze_crawl_budget(start_url, max_pages=14, timeout=10):
         recommend = bool(typ) or cnt >= VOL_THRESHOLD
         params.append({
             'key': nk, 'type': typ or 'parameter',
-            'why': why or f'{cnt} URLs generated by one parameter — high-volume crawl trap',
+            'why': why or f'{cnt} URLs generated by one parameter: a high-volume crawl trap',
             'count': cnt, 'max_num': b['max_num'], 'examples': b['examples'], 'trap': recommend,
         })
     _sev = {'pagination': 5, 'faceting': 4, 'sort': 3, 'tracking': 2, 'session': 2, 'search': 1, 'parameter': 0}
@@ -624,13 +692,30 @@ def crawl_budget_analyze():
 
 @app.route('/version')
 def version():
-    """Local build SHA, served to the UI for display + comparison against
-    our own fork's master HEAD (client-side fetch). Must stay the same repo
-    /update pulls from, or the badge nags about commits it cannot fetch."""
+    """Running build SHA, served to the UI for display + comparison
+    against the GitHub master HEAD (client-side fetch). disk_sha is what a
+    restart would load; restart_needed flags the two drifting apart."""
+    disk = _local_commit_sha()
     return jsonify({
-        'sha': _local_commit_sha(),
+        'sha': _BOOT_SHA,
+        'disk_sha': disk,
+        'restart_needed': disk != _BOOT_SHA,
         'repo': 'Jonesvicinus/alt-texty',
     })
+
+
+@app.route('/mcp-setup')
+def mcp_setup_info():
+    """What the "Use with AI" panel needs to connect an AI app over MCP: the
+    command for this machine, the mcpServers block and the bundle link. The
+    MCP server runs beside the app and reaches it on loopback, so the address
+    is 127.0.0.1 on this app's own port, whatever address the page was opened
+    on. Same data as `osc.py setup`."""
+    import agent_tools
+    port = request.environ.get('SERVER_PORT') or '5002'
+    info = agent_tools.mcp_setup(f'http://127.0.0.1:{port}')
+    info['same_machine'] = (request.remote_addr or '') in ('127.0.0.1', '::1')
+    return jsonify(info)
 
 
 @app.route('/update', methods=['POST'])
@@ -657,7 +742,7 @@ def update_self():
     import subprocess as _sp
     repo = os.path.dirname(os.path.abspath(__file__))
     if not os.path.isdir(os.path.join(repo, '.git')):
-        return jsonify({'ok': False, 'error': 'Not a git checkout — install via git clone to use auto-update.'}), 400
+        return jsonify({'ok': False, 'error': 'Not a git checkout. Install with git clone to use auto-update.'}), 400
 
     _env = {**os.environ, 'GIT_OPTIONAL_LOCKS': '0'}
     def _git(*args, timeout=60):
@@ -677,7 +762,20 @@ def update_self():
 
     before = _local_commit_sha()
     before_req = _req_hash()
+
     try:
+        # The hard-reset fallback below must never eat real work. An install has
+        # no commits of its own and, off Windows, no edited tracked files. A
+        # developer checkout running this same app can have both, and reset
+        # --hard would destroy them. Counted before the fetch moves origin/master,
+        # so commits that only vanished upstream (a history rewrite) still reset.
+        ahead_out = _git('rev-list', '--count', 'origin/master..HEAD')
+        ahead = int(ahead_out.stdout.strip() or 0) if ahead_out.returncode == 0 else 0
+        dirty = ''
+        if os.name != 'nt':   # a CRLF checkout on Windows reports every file as edited
+            st = _git('status', '--porcelain', '--untracked-files=no')
+            dirty = st.stdout.strip() if st.returncode == 0 else ''
+
         fetch = _git('fetch', '--quiet', 'origin', 'master')
         if fetch.returncode != 0:
             return jsonify({'ok': False, 'error': ('git fetch failed: ' + (fetch.stderr or fetch.stdout).strip())[:400]}), 500
@@ -687,6 +785,15 @@ def update_self():
         # case). Either way the tree ends up exactly on origin/master.
         ff = _git('merge', '--ff-only', 'origin/master')
         if ff.returncode != 0:
+            if ahead or dirty:
+                held = []
+                if ahead:
+                    held.append(f'{ahead} commit(s) that are not on GitHub')
+                if dirty:
+                    held.append('edited files that are not committed')
+                return jsonify({'ok': False, 'error': (
+                    'Update stopped so nothing is lost: this checkout has '
+                    + ' and '.join(held) + '. Commit or push that work, then update again.')}), 409
             reset = _git('reset', '--hard', 'origin/master')
             if reset.returncode != 0:
                 return jsonify({'ok': False, 'error': ('git reset failed: ' + (reset.stderr or reset.stdout).strip())[:400]}), 500
@@ -705,17 +812,23 @@ def update_self():
                 dep = _sp.run([pip, 'install', '-r', os.path.join(repo, 'requirements.txt')],
                               capture_output=True, text=True, timeout=300)
                 msg += ' Dependencies updated.' if dep.returncode == 0 \
-                    else ' WARNING: dependency reinstall failed — restart may fail.'
+                    else ' WARNING: dependency reinstall failed, so the restart may fail.'
             else:
-                msg += ' (requirements changed but venv pip not found — reinstall manually.)'
+                msg += ' (requirements changed but the venv pip was not found: reinstall manually.)'
 
         after = _local_commit_sha()
         return jsonify({
             'ok': True,
             'before': before,
             'after': after,
-            'changed': before != after,
+            # True whenever the running process is not on the new build, even
+            # if this pull fetched nothing (disk already updated elsewhere);
+            # the UI restarts on this, so a stale process always gets replaced.
+            'changed': after != _BOOT_SHA,
+            'pulled': before != after,
             'message': msg[:400],
+            # Lets the UI name the right restart command if the app stays down.
+            'platform': sys.platform,
         })
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)[:300]}), 500
@@ -723,9 +836,10 @@ def update_self():
 
 @app.route('/restart', methods=['POST'])
 def restart_self():
-    """Detached restart of the running Flask process. Platform split:
-    POSIX uses bash + nohup; Windows uses cmd.exe + start to launch a
-    detached pythonw.exe so the new process survives this one's death."""
+    """Restart the running Flask process onto the code on disk. Platform
+    split: POSIX re-execs in place (same PID, so systemd and launchd never
+    see a stop); Windows hands off to a detached PowerShell helper that
+    kills this process and starts a fresh pythonw.exe."""
     import subprocess as _sp
     import sys as _sys
     repo = os.path.dirname(os.path.abspath(__file__))
@@ -748,9 +862,12 @@ def restart_self():
         if os.path.exists(helper):
             # restart-helper.ps1 kills us, waits for the port to free, then
             # starts + VERIFIES the app, retrying instead of bricking.
+            # -Python is the interpreter running us now, used when the
+            # checkout has no venv (a system-Python install).
             cmd = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                    '-WindowStyle', 'Hidden', '-File', helper,
-                   '-OldPid', str(own_pid), '-Port', '5002']
+                   '-OldPid', str(own_pid), '-Port', '5002',
+                   '-Python', _sys.executable]
         else:
             # Fallback (pre-helper checkout): inline PowerShell, still no `start`.
             ps = (
@@ -762,36 +879,61 @@ def restart_self():
             ).format(pid=own_pid, pyw=pyw, app=app_py, repo=repo)
             cmd = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                    '-WindowStyle', 'Hidden', '-Command', ps]
-        try:
-            _sp.Popen(cmd, creationflags=CREATE_NO_WINDOW,
-                      stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
-        except Exception as e:
-            return jsonify({'ok': False, 'error': str(e)[:300]}), 500
+        # When the app runs as a Task Scheduler task (or under any service
+        # wrapper) it sits in a job object, and killing us ends the job and
+        # every process in it, the helper included, so nothing comes back.
+        # CREATE_BREAKAWAY_FROM_JOB lifts the helper out of the job; a job
+        # that forbids breakaway refuses it, so fall back to a plain spawn.
+        CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+        spawned = False
+        for flags in (CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB, CREATE_NO_WINDOW):
+            try:
+                _sp.Popen(cmd, creationflags=flags,
+                          stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+                spawned = True
+                break
+            except OSError as e:
+                last_err = e
+        if not spawned:
+            return jsonify({'ok': False, 'error': str(last_err)[:300]}), 500
         return jsonify({'ok': True, 'message': 'Restarting in ~3s'})
 
-    # POSIX
-    if os.environ.get('SITE_CRAWLER_SUPERVISED'):
-        # launchd (KeepAlive) owns the process: exit and let it respawn us, or
-        # the nohup copy below races it for the port.
-        threading.Timer(1.0, lambda: os._exit(0)).start()
-        return jsonify({'ok': True, 'message': 'Restarting in ~2s'})
-    log_path = os.path.expanduser('~/site-crawler/.restart.log')
-    cmd = (
-        f"sleep 1 && "
-        f"kill {own_pid} 2>/dev/null; sleep 1; "
-        f"cd {repo} && nohup python3 app.py >/dev/null 2>&1 &"
-    )
-    try:
-        _sp.Popen(['bash', '-c', cmd], start_new_session=True,
-                  stdout=open(log_path, 'a'), stderr=_sp.STDOUT)
-    except Exception as e:
-        return jsonify({'ok': False, 'error': str(e)[:300]}), 500
+    # POSIX: replace this process with a fresh copy of itself, same PID.
+    # Killing ourselves and respawning does not survive a service manager.
+    # systemd reads a SIGTERM exit as a clean stop, so Restart=on-failure
+    # (what install.sh writes) never brings the app back, and stopping the
+    # unit kills its whole cgroup, the detached respawn helper included.
+    # The app just vanished after "Restarting...". exec keeps the PID, so
+    # systemd and launchd see nothing happen, and a plain `python3 app.py`
+    # in a terminal restarts the same way.
+    def _reexec():
+        for stream in (_sys.stdout, _sys.stderr):
+            try:
+                stream.flush()
+            except Exception:
+                pass
+        # Werkzeug marks its listening socket inheritable and records it in
+        # WERKZEUG_SERVER_FD for its reloader. Left that way, the socket rides
+        # through exec, the new process cannot bind the port, and it exits.
+        fd = os.environ.pop('WERKZEUG_SERVER_FD', '')
+        if fd.isdigit():
+            try:
+                os.set_inheritable(int(fd), False)
+            except OSError:
+                pass
+        try:
+            os.execv(_sys.executable, [_sys.executable] + _sys.argv)
+        except Exception as e:
+            app.logger.error(f"[restart] exec failed, still running the old build: {e}")
+
+    # A short delay lets this response reach the browser first.
+    threading.Timer(1.0, _reexec).start()
     return jsonify({'ok': True, 'message': 'Restarting in ~2s'})
 
 
 @app.route('/')
 def index():
-    return render_template('index.html', v=STATIC_VERSION, build_sha=_local_commit_sha())
+    return render_template('index.html', v=STATIC_VERSION, build_sha=_BOOT_SHA)
 
 
 # =============================================================================
@@ -812,11 +954,11 @@ CMS_PROFILES = {
         ],
         'suggested_settings': {'render_js': False, 'max_workers': 5},
         'schema_warnings': [
-            'OnlineStore schema without a visible physical address triggers Google validation warnings — prefer plain Organization.',
+            'OnlineStore schema without a visible physical address triggers Google validation warnings. Prefer plain Organization.',
             'Shopify themes often auto-emit Organization + WebSite schema; check for duplication before adding custom blocks.',
         ],
         'tips': [
-            'Shopify uses /search?q= — valid SearchAction target.',
+            'Shopify uses /search?q=, a valid SearchAction target.',
             'Watch for ?variant= and ?srsltid= duplicate URLs.',
         ],
     },
@@ -836,7 +978,7 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': False, 'max_workers': 3, 'crawl_delay': 1.0},
         'schema_warnings': [],
         'tips': [
-            'WordPress on shared hosting can throttle under load — reduce workers to 2-3 on fragile sites.',
+            'WordPress on shared hosting can throttle under load: reduce workers to 2-3 on fragile sites.',
             'Author, tag, and feed URLs rarely deserve indexing.',
         ],
     },
@@ -853,7 +995,7 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': False, 'max_workers': 3, 'crawl_delay': 1.0},
         'schema_warnings': [
             'Yoast auto-emits an @graph with Organization, WebSite, WebPage, Article, BreadcrumbList. Do NOT duplicate these in custom schema blocks.',
-            'Yoast can also emit FAQPage if the FAQ block is used — audit before writing your own FAQPage.',
+            'Yoast can also emit FAQPage if the FAQ block is used, so audit before writing your own FAQPage.',
         ],
         'tips': [
             'If you\'re adding custom schema, put it in a new @graph node with distinct @id values.',
@@ -881,7 +1023,7 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': False, 'max_workers': 5},
         'schema_warnings': [],
         'tips': [
-            'Webflow handles trailing slashes at the server — confirm redirect behaviour is consistent.',
+            'Webflow handles trailing slashes at the server: confirm redirect behaviour is consistent.',
         ],
     },
     'wix': {
@@ -890,7 +1032,7 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': True, 'max_workers': 1},
         'schema_warnings': [],
         'tips': [
-            'Wix is heavily client-side rendered — enable Render JS or the link graph will be incomplete.',
+            'Wix is heavily client-side rendered: enable Render JS or the link graph will be incomplete.',
         ],
     },
     'squarespace': {
@@ -899,8 +1041,8 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': True, 'max_workers': 3},
         'schema_warnings': [],
         'tips': [
-            'Squarespace injects nav client-side — enable Render JS to discover all pages.',
-            'Meta title template is "<page title> — <site title>" by default.',
+            'Squarespace injects nav client-side: enable Render JS to discover all pages.',
+            'Default meta titles are the page title, a long dash, then the site title.',
         ],
     },
     'kajabi': {
@@ -909,7 +1051,7 @@ CMS_PROFILES = {
         'suggested_settings': {'render_js': False, 'max_workers': 3},
         'schema_warnings': [],
         'tips': [
-            'Kajabi lays out testimonials deep in the DOM — review word counts manually for sales pages.',
+            'Kajabi lays out testimonials deep in the DOM, so review word counts manually for sales pages.',
         ],
     },
     'ghost': {
@@ -1030,13 +1172,13 @@ def detect_cms_route():
     url = (data.get('url') or '').strip()
     if not url:
         return jsonify({'error': 'URL required'}), 400
-    if not url.startswith('http'):
+    if not _HAS_SCHEME_RE.match(url):
         url = 'https://' + url
     try:
         resp = _http_get(url, timeout=10, headers={
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/132.0.0.0 Safari/537.36'
         })
-        result = detect_cms(url, resp.text, dict(resp.headers))
+        result = detect_cms(url, _decoded_html(resp), dict(resp.headers))
         if result.get('cms'):
             prof = CMS_PROFILES.get(result['cms'], {})
             result['profile'] = {
@@ -1081,18 +1223,25 @@ def _normalize_crawl_url(url):
     Strips WooCommerce action endpoints (?add-to-cart=, ?wc-ajax= …) so
     every product page's "Add to cart" button doesn't surface as its own
     URL with no meta description.
+
+    The pairs that stay are kept exactly as written. Re-encoding them through
+    parse_qs + urlencode turned a bare ``?et_blog`` into ``?et_blog=``, and
+    WordPress 301s that back, so the crawl reported a redirect the site never
+    links to.
     """
-    from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
+    from urllib.parse import urlparse, urlunparse, unquote_plus
     parsed = urlparse(url)
     path = parsed.path or '/'
     if parsed.query:
-        params = parse_qs(parsed.query, keep_blank_values=True)
-        cleaned = {
-            k: v for k, v in params.items()
-            if not k.lower().startswith('utm_')
-            and k.lower() not in _CRAWL_NOISE_PARAMS
-        }
-        query = urlencode(cleaned, doseq=True)
+        kept = []
+        for pair in parsed.query.split('&'):
+            if not pair:
+                continue
+            k = unquote_plus(pair.split('=', 1)[0]).lower()
+            if k.startswith('utm_') or k in _CRAWL_NOISE_PARAMS:
+                continue
+            kept.append(pair)
+        query = '&'.join(kept)
     else:
         query = ''
     return urlunparse((parsed.scheme.lower(), parsed.netloc.lower(), path, '', query, ''))
@@ -1168,6 +1317,7 @@ _THIRD_PARTY_IMG_HOSTS = (
     'ct.pinterest.com',
     'hs-analytics.net',
     'js.hs-scripts.com',
+    'platform.smile.io',
 )
 _THIRD_PARTY_IMG_FILE_RE = _re.compile(
     r'(?:/recaptcha[/_\-]|recaptcha[_\-](?:black|white|logo)|/g\.gif$|/pixel\.gif$|'
@@ -1246,6 +1396,70 @@ def _filename_looks_decorative(src):
     return bool(_DECORATIVE_FILENAME_RE.search(fname))
 
 
+def _content_text(html):
+    """Main-content text of a page, for word counts and near-duplicate
+    detection: scripts, nav, header, footer, forms and nav-like wrappers
+    removed, then <main>, <article> or a content container preferred over
+    the whole body. Shared by the crawl and by the raw-HTML side of the JS
+    vs non-JS diff, so both sides count words the same way. (The diff used
+    to compare this count against a whole-body count, and flagged plain
+    static pages because their menus and footers inflated the raw side.)
+    """
+    soup_body = BeautifulSoup(html or '', 'html.parser')
+    for tag in soup_body(['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', 'form', 'svg']):
+        tag.decompose()
+    try:
+        nav_like_re = _re.compile(
+            r'(main[-_]?menu|primary[-_]?menu|site[-_]?nav|header[-_]?nav|'
+            r'mega[-_]?menu|nav[-_]?menu|top[-_]?menu|mobile[-_]?menu|sub[-_]?menu|'
+            r'breadcrumb|footer[-_]?menu|site[-_]?header|site[-_]?footer|'
+            r'menu[-_]?wrap|navbar|navigation|'
+            r'elementor-nav-menu|elementor-menu|elementor-widget-nav-menu|'
+            r'et_pb_menu|divi-menu|menu-item-has-children|\bmenu\b|'
+            r'offcanvas|hamburger|dropdown-menu)',
+            _re.I,
+        )
+        role_nav_re = _re.compile(r'^(navigation|menubar|menu)$', _re.I)
+        for el in list(soup_body.find_all(['div', 'section', 'ul', 'aside'])):
+            if not el.parent:
+                continue
+            classes = ' '.join(el.get('class') or [])
+            ident = el.get('id') or ''
+            role = el.get('role') or ''
+            aria = el.get('aria-label') or ''
+            if (nav_like_re.search(classes) or nav_like_re.search(ident)
+                    or role_nav_re.match(role) or nav_like_re.search(aria)):
+                el.decompose()
+    except Exception:
+        pass
+    # Pick the first <article> that ISN'T a post-grid / related-posts card.
+    # Elementor and many blog themes render recent/related posts as
+    # <article class="elementor-post elementor-grid-item ...">; grabbing the
+    # first of those captures the same boilerplate snippet on every page, so
+    # every post looks like an exact body duplicate. Skip those cards.
+    def _real_article(sb):
+        for art in sb.find_all('article'):
+            cls = ' '.join(art.get('class') or [])
+            if _re.search(r'elementor-post|elementor-grid-item|elementor-posts|post-grid|related|recent[-_]?post|widget', cls, _re.I):
+                continue
+            return art
+        return None
+
+    main_container = (
+        soup_body.find('main')
+        or soup_body.find(attrs={'role': 'main'})
+        # Elementor Theme Builder renders the real post body in this widget
+        # and ships no <main>/<article> wrapper, so it must come before the
+        # generic <article> fallback (which would otherwise hit a grid card).
+        or soup_body.find(attrs={'class': _re.compile(r'elementor-widget-theme-post-content', _re.I)})
+        or _real_article(soup_body)
+        or soup_body.find(id=_re.compile(r'^(main|content|primary|page-content)$', _re.I))
+        or soup_body.find(attrs={'class': _re.compile(r'(^|\s)(main-content|page-content|entry-content|post-content|article-content|site-main)(\s|$)', _re.I)})
+    )
+    text_root = main_container if main_container else soup_body
+    return text_root.get_text(separator=' ', strip=True)
+
+
 def _parse_no_js_subset(html, base_url):
     """Parse a subset of SEO-critical fields from raw HTML — used for the
     JS-vs-non-JS comparison so we can show what content is missing when JS
@@ -1266,6 +1480,8 @@ def _parse_no_js_subset(html, base_url):
         out['title'] = t.get_text(strip=True) if t else ''
         m = soup.find('meta', attrs={'name': 'description'})
         out['meta_description'] = m.get('content', '') if m else ''
+        rb = soup.find('meta', attrs={'name': _re.compile(r'^robots$', _re.I)})
+        out['noindex'] = bool(rb and 'noindex' in (rb.get('content') or '').lower())
         import re as _re_h
         def _clean_h(tag):
             txt = ' '.join(tag.get_text(' ', strip=True).split())
@@ -1274,10 +1490,6 @@ def _parse_no_js_subset(html, base_url):
         h1s = [h for h in h1s if h]
         out['h1'] = h1s[0] if h1s else ''
         out['h1_count'] = len(h1s)
-        for s in soup(['script', 'style', 'noscript']):
-            s.decompose()
-        body_text = ' '.join(soup.get_text(separator=' ', strip=True).split())
-        out['word_count'] = len(body_text.split()) if body_text else 0
         types = []
         def _push(v):
             if isinstance(v, list):
@@ -1300,7 +1512,24 @@ def _parse_no_js_subset(html, base_url):
                             _push(it['@type'])
             except Exception:
                 pass
+        # Microdata too, exactly as the main parser reads it. Without this the
+        # raw HTML of any microdata page looked schema-less next to the
+        # rendered DOM, and the JS diff called the schema "injected by JS"
+        # (critical) on plain static pages.
+        for el in soup.find_all(attrs={'itemtype': True})[:25]:
+            it_type = (el.get('itemtype') or '').rstrip('/').rsplit('/', 1)[-1].strip()
+            if it_type and it_type not in types:
+                types.append(it_type)
         out['schema_types'] = types
+        # Same main-content count as the crawl (the rendered side of the
+        # diff), from the untouched HTML.
+        body_text = _content_text(html)
+        out['word_count'] = len(body_text.split()) if body_text else 0
+        # Link and image counts below expect scripts gone. Stripped only now:
+        # doing it first hid every JSON-LD block, so the diff reported schema
+        # as JS-only on pages that serve it in HTML.
+        for s in soup(['script', 'style', 'noscript']):
+            s.decompose()
         try:
             host = (urlparse(base_url).netloc or '').lower().replace('www.', '')
         except Exception:
@@ -1410,7 +1639,320 @@ def _is_challenge_response(resp):
         return False
 
 
-def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, capture_no_js=False, challenge_browser=None):
+# Render JS needs Playwright and a Chromium build, neither of which the
+# installers set up (about 150 MB). Before 2026-09 a missing renderer
+# silently fell back to plain HTML, so a JS-only site "crawled" one page
+# with no hint why. Now the first crawl with Render JS installs it into the
+# running interpreter (the install's own venv) and reports progress.
+_JS_RENDERER_MANUAL = 'python -m pip install playwright && python -m playwright install chromium'
+
+
+def _js_renderer_installable(err):
+    """True when a PlaywrightRenderer init error is one we can fix by
+    installing (module or browser missing), not e.g. missing system libs."""
+    e = (err or '').lower()
+    return ("no module named 'playwright'" in e
+            or "executable doesn't exist" in e
+            or 'playwright install' in e and 'install-deps' not in e)
+
+
+def _install_js_renderer():
+    """Generator: install playwright + chromium, yielding progress strings.
+    Raises RuntimeError with the tail of the output on failure."""
+    import subprocess as _sp
+    import sys as _sys
+    import importlib
+    steps = []
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        steps.append(('Installing Playwright (Python package)', [_sys.executable, '-m', 'pip', 'install', '--quiet', 'playwright']))
+    steps.append(('Downloading Chromium for JS rendering', [_sys.executable, '-m', 'playwright', 'install', 'chromium']))
+    for label, cmd in steps:
+        yield f'{label}. One-time setup, this can take a couple of minutes.'
+        proc = _sp.Popen(cmd, stdout=_sp.PIPE, stderr=_sp.STDOUT, text=True, errors='replace')
+        tail = []
+        last = time.time()
+        for line in proc.stdout:
+            line = line.strip()
+            if line:
+                tail = (tail + [line])[-8:]
+            if time.time() - last > 15:
+                last = time.time()
+                yield f'{label}, still working...'
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(f'{label} failed: ' + ' | '.join(tail)[-400:])
+        importlib.invalidate_caches()
+    yield 'JS rendering installed.'
+
+
+class PlaywrightRenderer:
+    """Owns a Playwright sync session on a single dedicated thread.
+
+    Playwright's sync API uses greenlets bound to the thread that called
+    sync_playwright().start(). Calling page.goto() from any other thread
+    raises 'cannot switch to a different thread (which happens to have
+    exited)'. This renderer confines every Playwright call to one worker
+    thread for its entire lifetime, and exposes a thread-safe render(url)
+    that any caller (Flask request thread, ThreadPoolExecutor worker, etc.)
+    can invoke. Requests are serialised through a queue.
+    """
+    _SENTINEL = object()
+
+    def __init__(self, user_agent, launch_timeout=30):
+        self._ua = user_agent
+        self._queue = queue.Queue()
+        self._ready = threading.Event()
+        self._init_error = None
+        self._closed = False
+        self._thread = threading.Thread(target=self._run, daemon=True, name='pw-renderer')
+        self._thread.start()
+        if not self._ready.wait(timeout=launch_timeout):
+            raise RuntimeError('Playwright init timed out')
+        if self._init_error:
+            raise RuntimeError(self._init_error)
+
+    def _run(self):
+        pw = browser = page = None
+        try:
+            from playwright.sync_api import sync_playwright
+            pw = sync_playwright().start()
+            browser = pw.chromium.launch(
+                headless=True,
+                args=['--no-sandbox', '--disable-dev-shm-usage'],
+            )
+            page = browser.new_page(
+                viewport={'width': 1280, 'height': 900},
+                user_agent=self._ua,
+            )
+            page.set_default_timeout(20000)
+        except Exception as e:
+            self._init_error = str(e)
+            self._ready.set()
+            for obj, m in ((page, 'close'), (browser, 'close'), (pw, 'stop')):
+                if obj is not None:
+                    try: getattr(obj, m)()
+                    except Exception: pass
+            return
+        self._ready.set()
+        try:
+            while True:
+                item = self._queue.get()
+                if item is self._SENTINEL:
+                    break
+                url, timeout, future, want_clicks = item
+                if future.cancelled():
+                    continue
+                err_parts = []
+                html = ''
+                try:
+                    page.goto(url, wait_until='load', timeout=timeout)
+                except Exception as e:
+                    err_parts.append(f'goto: {str(e)[:160]}')
+                try:
+                    page.wait_for_load_state('networkidle', timeout=4000)
+                except Exception:
+                    pass
+                try:
+                    html = page.content()
+                except Exception as e:
+                    err_parts.append(f'content: {str(e)[:160]}')
+                click_links = []
+                if want_clicks and html and _needs_js_click_discovery(html):
+                    try:
+                        click_links = _discover_js_click_links(page, page.url or url)
+                    except Exception as e:
+                        err_parts.append(f'js-click: {str(e)[:160]}')
+                err = '; '.join(err_parts) if err_parts else None
+                future.set_result((html, err, click_links) if want_clicks else (html, err))
+        finally:
+            for obj, m in ((page, 'close'), (browser, 'close'), (pw, 'stop')):
+                if obj is not None:
+                    try: getattr(obj, m)()
+                    except Exception: pass
+
+    def render(self, url, timeout=20000):
+        """Render url and return (html, error_or_None). Safe to call from any thread."""
+        if self._closed:
+            return ('', 'renderer closed')
+        from concurrent.futures import Future
+        f = Future()
+        self._queue.put((url, timeout, f, False))
+        try:
+            return f.result(timeout=(timeout / 1000.0) + 30)
+        except Exception as e:
+            f.cancel()
+            return ('', f'render: {str(e)[:160]}')
+
+    def render_with_clicks(self, url, timeout=20000):
+        """Like render(), plus JS click-link discovery when the rendered page
+        has almost no <a href> anchors. Returns (html, error_or_None, links)."""
+        if self._closed:
+            return ('', 'renderer closed', [])
+        from concurrent.futures import Future
+        f = Future()
+        self._queue.put((url, timeout, f, True))
+        try:
+            return f.result(timeout=(timeout / 1000.0) + 60)
+        except Exception as e:
+            f.cancel()
+            return ('', f'render: {str(e)[:160]}', [])
+
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._queue.put(self._SENTINEL)
+        except Exception:
+            pass
+        self._thread.join(timeout=10)
+
+
+# JS click-link discovery. No-code builders (Bubble, some Wix/Softr/Glide
+# builds) render navigation as clickable <div>s wired to JS workflows, with no
+# <a href> anywhere in the DOM, rendered or not. Link extraction then finds
+# nothing and the crawl stops at the homepage even with JS rendering on.
+# When a rendered page carries almost no anchors, click each clickable
+# element in the headless page and capture where it would go:
+#   - history.pushState / replaceState and window.open are stubbed to record
+#     the URL instead of acting on it
+#   - full navigations are caught at the network layer and answered with a
+#     204, which cancels the navigation and leaves the document in place
+#     (route.abort() would drop the page onto chrome-error://)
+_JS_CLICK_MIN_ANCHORS = 3
+_JS_CLICK_MAX_ELEMENTS = 120
+_JS_CLICK_ANCHOR_RE = _re.compile(r'<a\s[^>]*href\s*=', _re.I)
+
+
+def _needs_js_click_discovery(html):
+    return len(_JS_CLICK_ANCHOR_RE.findall(html or '', 0)) < _JS_CLICK_MIN_ANCHORS
+
+_JS_CLICK_HOOK = r"""() => {
+  if (window.__ocClkHooked) return;
+  window.__ocClkHooked = 1; window.__ocClk = []; window.__ocClkCur = '';
+  const rec = u => { try { window.__ocClk.push([String(new URL(u, location.href)), window.__ocClkCur]); } catch (e) {} };
+  history.pushState = function (s, t, u) { if (u != null) rec(u); };
+  history.replaceState = function (s, t, u) { if (u != null) rec(u); };
+  window.open = function (u) { if (u) rec(u); return null; };
+}"""
+_JS_CLICK_MARK = r"""(max) => {
+  const sel = '.clickable-element,[onclick],[role=link],[data-href],[data-url],[data-link]';
+  const seen = new Set(); const out = [];
+  for (const e of document.querySelectorAll(sel)) {
+    if (e.closest('a[href]') || e.querySelector('a[href]')) continue;
+    if (e.tagName === 'SCRIPT' || e.tagName === 'STYLE') continue;
+    const txt = (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 180);
+    const key = e.className + '|' + txt;
+    if (seen.has(key)) continue; seen.add(key);
+    const direct = e.getAttribute('data-href') || e.getAttribute('data-url') || e.getAttribute('data-link') || '';
+    e.setAttribute('data-oc-clk', out.length);
+    out.push([txt, direct]);
+    if (out.length >= max) break;
+  }
+  return out;
+}"""
+_JS_CLICK_FIRE = r"""(i) => {
+  const e = document.querySelector('[data-oc-clk="' + i + '"]');
+  if (!e) return;
+  window.__ocClkCur = (e.innerText || e.getAttribute('aria-label') || '').trim().replace(/\s+/g, ' ').slice(0, 180);
+  e.click();
+}"""
+
+
+def _discover_js_click_links(pw_page, page_url):
+    """Return [[absolute_url, anchor_text], ...] reached by clicking
+    href-less clickable elements. Best effort: any failure returns what was
+    collected so far."""
+    from urllib.parse import urljoin, urlparse
+    found = []
+    navs = []
+
+    def _route(route, req):
+        try:
+            if req.is_navigation_request() and req.frame == pw_page.main_frame:
+                navs.append([req.url, ''])
+                route.fulfill(status=204, body='')
+                return
+        except Exception:
+            pass
+        try:
+            route.continue_()
+        except Exception:
+            pass
+
+    cur_path = urlparse(page_url).path.rstrip('/')
+    routed = False
+    try:
+        pw_page.route('**/*', _route)
+        routed = True
+        pw_page.evaluate(_JS_CLICK_HOOK)
+        cands = pw_page.evaluate(_JS_CLICK_MARK, _JS_CLICK_MAX_ELEMENTS) or []
+        # Labels of recent clicks that produced no navigation inside their
+        # wait window. A slow workflow can fire after the next click starts,
+        # so when one window catches several navigations the earlier ones
+        # belong to those silent clicks, not the current one.
+        silent = []
+        for i, (txt, direct) in enumerate(cands):
+            if direct:
+                found.append([urljoin(page_url, direct), txt])
+                continue
+            n_before = len(navs)
+            try:
+                pw_page.evaluate(_JS_CLICK_FIRE, i)
+                pw_page.wait_for_timeout(200)
+            except Exception:
+                continue
+            new = navs[n_before:]
+            if not new:
+                silent = (silent + [txt])[-3:]
+                continue
+            if len(new) == 1:
+                new[0][1] = txt
+            else:
+                # Arrival order is not reliable, so pair each URL with the
+                # label whose words best match its path slug.
+                labels = silent + [txt]
+                for nav in new:
+                    slug = set(_re.findall(r'[a-z0-9]+', urlparse(nav[0]).path.lower()))
+                    best = max(labels, key=lambda l: len(slug & set(_re.findall(r'[a-z0-9]+', l.lower())))) if labels else txt
+                    nav[1] = best
+                    if len(labels) > 1:
+                        labels.remove(best)
+            silent = []
+        try:
+            found.extend(pw_page.evaluate('window.__ocClk || []') or [])
+        except Exception:
+            pass
+    except Exception:
+        pass
+    finally:
+        if routed:
+            try:
+                pw_page.unroute('**/*', _route)
+            except Exception:
+                pass
+    found.extend(navs)
+
+    out, seen = [], set()
+    for u, txt in found:
+        if not u or not u.lower().startswith(('http://', 'https://')):
+            continue
+        p = urlparse(u)
+        # Same path, different query/fragment = in-page state (tabs, scroll
+        # anchors such as Bubble's ?section=faq), not a separate page.
+        if p.netloc == urlparse(page_url).netloc and p.path.rstrip('/') == cur_path:
+            continue
+        u = u.split('#', 1)[0]
+        if u in seen:
+            continue
+        seen.add(u)
+        out.append([u, (txt or '')[:180]])
+    return out
+
+
+def _crawl_page(url, session, domain, pw_renderer=None, ignore_noindex=False, capture_no_js=False, challenge_browser=None, effective_url=None):
     """Crawl a single page and return audit data dict.
 
     If ``pw_page`` (a live Playwright page) is provided, the HTML body will be
@@ -1423,10 +1965,16 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
     ``result['non_js']`` plus a diff/severity summary at ``result['js_diff']``.
     Lets the user see what content is JS-only and therefore at risk for AI
     crawlers (GPTBot, ClaudeBot etc.) which mostly don't execute JS.
+
+    ``effective_url``: the address to audit when ``url`` is only what gets
+    fetched. Recrawl fetches a cache-busted copy (?_cb=...) so a CDN cannot
+    hand back the HTML from before the fix, and the row, the URL checks and
+    the canonical comparison still use the real address.
     """
     from urllib.parse import urlparse, urljoin
+    audit_url = effective_url or url
     result = {
-        'url': url, 'status_code': 0, 'content_type': '', 'last_modified': '', 'response_time': 0,
+        'url': audit_url, 'status_code': 0, 'content_type': '', 'last_modified': '', 'response_time': 0,
         'title': '', 'title_len': 0, 'meta_description': '', 'meta_len': 0,
         'h1': '', 'h1_list': [], 'h2_list': [], 'h2_count': 0,
         'canonical': '', 'canonical_match': False, 'canonical_kind': None,
@@ -1481,15 +2029,24 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
             # Decide whether to retry, fall back UA, or accept the response.
             if resp is not None:
                 if resp.status_code == 429:
-                    # Respect Retry-After header if present, else exponential wait.
+                    # Respect Retry-After (capped at 120s so a bad header cannot
+                    # stall the crawl for hours), else exponential wait. The
+                    # hint lets the outer loop pause the whole host, and a 429
+                    # that survives every retry is flagged so the outer loop
+                    # requeues the URL instead of recording an error row:
+                    # retries here alone cannot win while other workers are
+                    # still hitting the same host.
                     ra = resp.headers.get('Retry-After', '').strip()
-                    try: wait = float(ra) if ra else 2 * (2 ** attempt)
-                    except ValueError: wait = 2 * (2 ** attempt)
-                    wait = min(wait, 10)
+                    # Retry-After is seconds or an HTTP date; both are read.
+                    wait = crawl_throttle.parse_retry_after(ra)
+                    if wait is None: wait = 2 * (2 ** attempt)
+                    wait = min(wait, 120)
+                    result['_retry_hint'] = wait
                     if attempt < 2:
                         retries_done += 1
                         time.sleep(wait)
                         continue
+                    result['_rate_limited'] = True
                 elif 500 <= resp.status_code < 600:
                     # WAF block-page check — Wordfence/Cloudflare/Sucuri 503s.
                     # Retrying just escalates the block, so bail and let the
@@ -1525,11 +2082,11 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                                 result['challenge_solved'] = True
                             else:
                                 result['issues'].append(
-                                    'Bot challenge (Cloudflare) could not be solved — page not crawlable: '
+                                    'Bot challenge (Cloudflare) could not be solved, page not crawlable: '
                                     + (_ch_err or 'unknown error'))
                         else:
                             result['issues'].append(
-                                'Bot challenge (Cloudflare) blocked this page — enable "Solve bot challenges" to crawl this site')
+                                'Bot challenge (Cloudflare) blocked this page. Enable "Solve bot challenges" to crawl this site')
                         break
                     # One UA-swap attempt to dodge Cloudflare-style fingerprinting.
                     # Only swap UA on the first attempt so we don't keep cycling.
@@ -1560,7 +2117,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         result['retries'] = retries_done
         if ssl_bypassed:
             result['ssl_verify_failed'] = True
-            result['issues'].append('SSL certificate verification failed (incomplete chain / untrusted cert) — crawled with verification disabled; fix the cert chain')
+            result['issues'].append('SSL certificate verification failed (incomplete chain / untrusted cert), crawled with verification disabled; fix the cert chain')
         result['status_code'] = challenge_status if challenge_html else resp.status_code
         result['response_time'] = round(resp.elapsed.total_seconds(), 2)
         result['content_type'] = resp.headers.get('Content-Type', '')[:50]
@@ -1634,32 +2191,39 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                 # returned 200, not the URL we requested. Without this, the seed
                 # AND the redirect target both end up as separate "page" rows when
                 # the target is later discovered via an internal link.
-                result['url'] = resp.url
-                result['original_url'] = url
+                if not effective_url:
+                    result['url'] = resp.url
+                    result['original_url'] = url
 
         # --- URL issues (from the source URL, not redirect target) ---
         from urllib.parse import urlparse as _urlparse2
-        _parsed_url = _urlparse2(url)
+        _parsed_url = _urlparse2(audit_url)
         _url_path_query = _parsed_url.path + (('?' + _parsed_url.query) if _parsed_url.query else '')
         _url_issues = []
         if any(c.isupper() for c in _parsed_url.path):
             _url_issues.append('uppercase')
         if '_' in _parsed_url.path:
             _url_issues.append('underscores')
-        if ' ' in url or '%20' in _parsed_url.path:
+        if ' ' in audit_url or '%20' in _parsed_url.path:
             _url_issues.append('contains space')
-        if len(url) > 115:
-            _url_issues.append(f'over 115 chars ({len(url)})')
+        if len(audit_url) > 115:
+            _url_issues.append(f'over 115 chars ({len(audit_url)})')
         if '//' in _parsed_url.path:
             _url_issues.append('multiple slashes')
         try:
-            url.encode('ascii')
+            audit_url.encode('ascii')
         except UnicodeEncodeError:
             _url_issues.append('non-ASCII characters')
         if _parsed_url.query:
             _url_issues.append('contains parameters')
             if any(p in _parsed_url.query for p in ('utm_', 'gclid=', 'fbclid=')):
                 _url_issues.append('tracking parameters')
+        # Path shapes that make duplicate or infinite URL space: a segment
+        # repeating, and internal search result pages.
+        try:
+            _url_issues.extend(page_checks.url_shape_issues(audit_url))
+        except Exception:
+            pass
         result['url_issues'] = _url_issues
 
         # --- Pagination detection ---
@@ -1682,7 +2246,10 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         }
         result['security'] = sec
         result['x_robots_tag'] = hdrs.get('x-robots-tag', '')
-        if result['x_robots_tag'] and 'noindex' in result['x_robots_tag'].lower():
+        # Indexable means indexable for Google: unscoped directives plus a
+        # "googlebot:" section. A "bingbot: noindex" header no longer marks
+        # the page as out of the index for everyone.
+        if 'noindex' in page_checks.x_robots_for(result['x_robots_tag'], 'googlebot'):
             result['indexable'] = False
 
         # Judge on the effective status: a solved challenge carries the real
@@ -1699,7 +2266,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
             return result
 
         # Limit body size
-        raw_html = (challenge_html or resp.text)[:5_000_000]
+        raw_html = (challenge_html or _decoded_html(resp))[:5_000_000]
         # Keep pre-JS HTML for the JS-vs-non-JS diff (cheap; one extra ref).
         pre_js_html = raw_html
         result['js_rendered'] = False
@@ -1715,25 +2282,18 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         # Skipped when the body came from the challenge browser: that HTML is
         # already browser-rendered, and re-fetching through the headless
         # renderer would just land back on the interstitial.
-        if pw_page is not None and not challenge_html and ('text/html' in ctype or 'application/xhtml' in ctype):
+        if pw_renderer is not None and not challenge_html and ('text/html' in ctype or 'application/xhtml' in ctype):
             try:
-                pw_page.goto(resp.url, wait_until='load', timeout=20000)
-            except Exception as e:
-                # Even if goto times out, the page may have loaded enough of
-                # the DOM to be useful — keep going and let content() decide.
-                result.setdefault('render_errors', []).append(f'goto: {str(e)[:160]}')
-            # Best-effort settle window for late-injected trackers
-            try:
-                pw_page.wait_for_load_state('networkidle', timeout=4000)
-            except Exception:
-                pass
-            try:
-                rendered = pw_page.content()
+                rendered, render_err, click_links = pw_renderer.render_with_clicks(resp.url, timeout=20000)
+                if render_err:
+                    result.setdefault('render_errors', []).append(render_err)
                 if rendered and len(rendered) > 100:
                     raw_html = rendered[:5_000_000]
                     result['js_rendered'] = True
+                    if click_links:
+                        result['_js_click_links'] = click_links
             except Exception as e:
-                result.setdefault('render_errors', []).append(f'content: {str(e)[:160]}')
+                result.setdefault('render_errors', []).append(f'render: {str(e)[:160]}')
 
         soup = BeautifulSoup(raw_html, 'html.parser')
 
@@ -1771,8 +2331,9 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         can_tag = soup.find('link', attrs={'rel': 'canonical'})
         result['canonical'] = can_tag.get('href', '') if can_tag else ''
         if result['canonical']:
-            can_abs = urljoin(url, result['canonical'])
-            same = can_abs.rstrip('/') == url.rstrip('/') or can_abs.rstrip('/') == resp.url.rstrip('/')
+            can_abs = urljoin(audit_url, result['canonical'])
+            same = (can_abs.rstrip('/') == audit_url.rstrip('/')
+                    or (not effective_url and can_abs.rstrip('/') == resp.url.rstrip('/')))
             result['canonical_match'] = same
             if same:
                 result['canonical_kind'] = 'self'
@@ -1788,7 +2349,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
             hl = ln.get('hreflang')
             hf = ln.get('href')
             if hl and hf:
-                result['hreflang'].append({'lang': hl, 'href': urljoin(url, hf)})
+                result['hreflang'].append({'lang': hl, 'href': urljoin(audit_url, hf)})
 
         # Schema types — schema.org @type can be a single string or a list
         # ("@type": ["Service", "LocalBusiness"]). Flatten to individual
@@ -1877,59 +2438,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         # <div class="elementor-nav-menu">). Also prefer <main>/<article>
         # content when present so the body word count reflects actual content,
         # not menu/footer boilerplate (otherwise thin-content detection misfires).
-        soup_body = BeautifulSoup(raw_html, 'html.parser')
-        for tag in soup_body(['script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript', 'form', 'svg']):
-            tag.decompose()
-        try:
-            nav_like_re = _re.compile(
-                r'(main[-_]?menu|primary[-_]?menu|site[-_]?nav|header[-_]?nav|'
-                r'mega[-_]?menu|nav[-_]?menu|top[-_]?menu|mobile[-_]?menu|sub[-_]?menu|'
-                r'breadcrumb|footer[-_]?menu|site[-_]?header|site[-_]?footer|'
-                r'menu[-_]?wrap|navbar|navigation|'
-                r'elementor-nav-menu|elementor-menu|elementor-widget-nav-menu|'
-                r'et_pb_menu|divi-menu|menu-item-has-children|\bmenu\b|'
-                r'offcanvas|hamburger|dropdown-menu)',
-                _re.I,
-            )
-            role_nav_re = _re.compile(r'^(navigation|menubar|menu)$', _re.I)
-            for el in list(soup_body.find_all(['div', 'section', 'ul', 'aside'])):
-                if not el.parent:
-                    continue
-                classes = ' '.join(el.get('class') or [])
-                ident = el.get('id') or ''
-                role = el.get('role') or ''
-                aria = el.get('aria-label') or ''
-                if (nav_like_re.search(classes) or nav_like_re.search(ident)
-                        or role_nav_re.match(role) or nav_like_re.search(aria)):
-                    el.decompose()
-        except Exception:
-            pass
-        # Pick the first <article> that ISN'T a post-grid / related-posts card.
-        # Elementor and many blog themes render recent/related posts as
-        # <article class="elementor-post elementor-grid-item ...">; grabbing the
-        # first of those captures the same boilerplate snippet on every page, so
-        # every post looks like an exact body duplicate. Skip those cards.
-        def _real_article(sb):
-            for art in sb.find_all('article'):
-                cls = ' '.join(art.get('class') or [])
-                if _re.search(r'elementor-post|elementor-grid-item|elementor-posts|post-grid|related|recent[-_]?post|widget', cls, _re.I):
-                    continue
-                return art
-            return None
-
-        main_container = (
-            soup_body.find('main')
-            or soup_body.find(attrs={'role': 'main'})
-            # Elementor Theme Builder renders the real post body in this widget
-            # and ships no <main>/<article> wrapper, so it must come before the
-            # generic <article> fallback (which would otherwise hit a grid card).
-            or soup_body.find(attrs={'class': _re.compile(r'elementor-widget-theme-post-content', _re.I)})
-            or _real_article(soup_body)
-            or soup_body.find(id=_re.compile(r'^(main|content|primary|page-content)$', _re.I))
-            or soup_body.find(attrs={'class': _re.compile(r'(^|\s)(main-content|page-content|entry-content|post-content|article-content|site-main)(\s|$)', _re.I)})
-        )
-        text_root = main_container if main_container else soup_body
-        body_text = text_root.get_text(separator=' ', strip=True)
+        body_text = _content_text(raw_html)
         result['word_count'] = len(body_text.split()) if body_text else 0
         # Cap body text at 30k chars — sufficient for shingle-based near-dup
         # detection on any reasonable page; keeps the SSE payload bounded.
@@ -1979,6 +2488,9 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         #     (the image doesn't need its own alt for screen readers).
         imgs = soup.find_all('img')
         result['images_total'] = len(imgs)
+        # Paths of images the page describes somewhere, so an alt="" copy of
+        # one (slider clone, quick-view, hidden duplicate) is not flagged.
+        _described_imgs = page_checks.described_image_paths(imgs)
         no_alt_imgs = []              # offending — no alt attr AND not decorative
         no_alt_data = []              # rich per-image records — feeds the missing-alt detail row
         all_images_data = []          # every meaningful image on the page — feeds the All Images panel
@@ -2072,6 +2584,8 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                         _classification = 'empty in link'
                 elif _filename_looks_decorative(abs_src):
                     _classification = 'empty'
+                elif page_checks.empty_alt_not_content(img, _described_imgs):
+                    _classification = 'empty'
                 else:
                     _classification = 'empty (likely content)'
             else:
@@ -2137,20 +2651,39 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         # Links - extract internal + external with anchor text + placement.
         # Placement = which site region the link sits in (nav / header / footer / main),
         # so users can tell boilerplate links from content links — like Screaming Frog.
+        # Class hints match whole words, and the walk stops at <body>: body and
+        # html classes are page settings, not regions (Divi puts et-tb-has-footer
+        # on every page, so a substring match labelled every copy link footer).
+        # Divi module classes (et_pb_*) name the module type, e.g. the page hero
+        # et_pb_fullwidth_header, so they are not region hints either.
+        _NAV_STARTS = ('navbar', 'navigation', 'navmenu', 'navlink', 'navitem', 'navwrap', 'navlist')
+
+        def _class_region(class_list):
+            if isinstance(class_list, str): class_list = class_list.split()
+            words = set()
+            for c in class_list:
+                c = c.lower()
+                if c.startswith('et_pb_'): continue
+                words.update(_re.findall(r'[a-z0-9]+', c))
+            if any(w == 'nav' or w.endswith('nav') or w.startswith(_NAV_STARTS) for w in words): return 'nav'
+            if any(w.startswith('footer') or w.endswith('footer') for w in words): return 'footer'
+            if any(w.startswith('header') or w.endswith('header') for w in words): return 'header'
+            return None
+
         def _placement(a_tag):
             for ancestor in a_tag.parents:
                 name = (getattr(ancestor, 'name', None) or '').lower()
                 if not name: continue
+                if name in ('body', 'html', '[document]'): break
                 if name in ('nav',): return 'nav'
                 if name in ('header',): return 'header'
                 if name in ('footer',): return 'footer'
                 if name in ('aside',): return 'sidebar'
                 # Check role / class hints
-                classes = ' '.join(ancestor.get('class', []) if hasattr(ancestor, 'get') else []).lower()
                 role = (ancestor.get('role', '') if hasattr(ancestor, 'get') else '').lower()
-                if 'nav' in classes or role == 'navigation': return 'nav'
-                if 'footer' in classes: return 'footer'
-                if 'header' in classes: return 'header'
+                if role == 'navigation': return 'nav'
+                region = _class_region(ancestor.get('class', []) if hasattr(ancestor, 'get') else [])
+                if region: return region
                 if name == 'main': return 'main'
             return 'body'
 
@@ -2172,6 +2705,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
             if base_href:
                 link_base = urljoin(link_base, base_href)
         int_links = {}      # normalized target -> {anchor, placement}
+        int_links_copy = {} # same, the first body-copy link to a target whose first link sat in nav/header/footer
         ext_links_list = [] # external links captured with anchor + placement
         ext_count = 0
         for a in soup.find_all('a', href=True):
@@ -2234,7 +2768,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                         if src:
                             fname = src.split('?', 1)[0].rstrip('/').split('/')[-1][:80]
                         if alt and fname:
-                            anchor = f'[image: {alt} — {fname}]'
+                            anchor = f'[image: {alt}, {fname}]'
                         elif alt:
                             anchor = f'[image: {alt}]'
                         elif fname:
@@ -2249,6 +2783,13 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                 normalized = _normalize_crawl_url(resolved)
                 if normalized not in int_links:
                     int_links[normalized] = (anchor, placement)
+                elif (placement in ('main', 'body') and normalized not in int_links_copy
+                      and int_links[normalized][1] not in ('main', 'body')):
+                    # The first link to a target wins, and on most sites that
+                    # is the menu, so a link to the same page in the copy
+                    # vanished: every page the menu lists showed no in-content
+                    # links at all. Keep the first copy link too.
+                    int_links_copy[normalized] = (anchor, placement)
             else:
                 ext_count += 1
                 if len(ext_links_list) < 300:  # cap payload
@@ -2265,15 +2806,37 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
 
         # Transport (internal): [[target, anchor, placement], ...]
         # Transport (external): [[target, anchor, placement, rel, target_attr], ...]
-        result['internal_link_urls'] = [[t, a, p] for t, (a, p) in int_links.items()]
+        # Links found by clicking href-less JS elements (see
+        # _discover_js_click_links). Queued for crawling like real links, but
+        # flagged: search engines only follow <a href>, so these pages are
+        # effectively unlinked for Google.
+        _js_click = result.pop('_js_click_links', None) or []
+        _js_click_int = 0
+        for _cu, _ct in _js_click:
+            _cdom = urlparse(_cu).netloc.lower().replace('www.', '')
+            _canchor = (_ct or '(no text)')[:160] + ' [JS click]'
+            if _cdom == domain:
+                _cn = _normalize_crawl_url(_cu)
+                if _cn not in int_links:
+                    int_links[_cn] = (_canchor, 'body')
+                    _js_click_int += 1
+            else:
+                ext_count += 1
+                if len(ext_links_list) < 300:
+                    ext_links_list.append([_cu, _canchor, 'body', '', ''])
+        if _js_click_int:
+            result['js_click_links'] = _js_click_int
+            result['issues'].append(f'JS-only navigation: {_js_click_int} internal link(s) have no <a href> (search engines cannot follow them)')
+
+        result['internal_link_urls'] = ([[t, a, p] for t, (a, p) in int_links.items()]
+                                        + [[t, a, p] for t, (a, p) in int_links_copy.items()])
         result['internal_links'] = len(int_links)
         result['external_link_urls'] = ext_links_list
         result['external_links'] = ext_count
 
         # Issues detection — skip content/SEO checks for noindex or pagination pages
         # (noindex = Google won't rank it; pagination = archive duplicate, not a canonical page)
-        # Also skip URLs that redirected: the resolved target is crawled separately and
-        # any content issues belong on that row, not on the 301 source.
+        # Also skip rows that stand for a redirect source (see _redirect_source).
         # When ignore_noindex is set, treat noindex pages like indexable ones for
         # the audit so the user sees the full warning/info list, not just the flag.
         # ALSO skip canonicalised pages — they're declared duplicates so any
@@ -2287,7 +2850,17 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         # description / Missing title / Missing H1" even though the source is
         # just a redirect that never returns HTML.
         _status = result.get('status_code', 0) or 0
-        if (result['indexable'] or ignore_noindex) and not result.get('is_pagination') and not result.get('redirect_url') and not is_canonicalised and 200 <= _status < 300:
+        # A followed redirect is stored under the page it landed on (result['url']
+        # = resp.url above), so that row IS the landing page and gets the content
+        # checks. Skipping every row with a redirect_url left any page reached
+        # through a redirect unchecked, the start URL above all (example.com ->
+        # www.example.com). Skip only a row that stands for the source: a recrawl
+        # keeps the requested address, and a redirect off the site lands on
+        # someone else's page.
+        _rd = result.get('redirect_url')
+        _redirect_source = _is_redirect_source(result) or bool(
+            _rd and urlparse(_rd).netloc.lower().replace('www.', '') != domain)
+        if (result['indexable'] or ignore_noindex) and not result.get('is_pagination') and not _redirect_source and not is_canonicalised and 200 <= _status < 300:
             if not result['title']:
                 result['issues'].append('Missing title')
             elif result['title_len'] > 60:
@@ -2354,9 +2927,30 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                 platform = _detect_js_platform(raw_html) if not result.get('js_rendered') else None
                 if platform:
                     result['js_platform'] = platform
-                    result['issues'].append(f'Analytics unknown — {platform} site needs Render JS')
+                    result['issues'].append(f'Analytics unknown: {platform} site needs Render JS')
                 else:
                     result['issues'].append('No analytics detected')
+
+        # --- Extra checks (page_checks.py) ---
+        # Head-position directives, duplicate tags, canonical conflicts, robots
+        # directives past plain noindex, soft 404s, hreflang faults, SERP pixel
+        # width, internal link and markup faults. Pure and offline, so they're
+        # covered by test_page_checks.py against fixture strings rather than a
+        # live crawl. The gate below is the same one the content checks above
+        # used, so copy-level findings stay off pages whose copy belongs to
+        # another URL.
+        _content_ok = bool(
+            (result['indexable'] or ignore_noindex)
+            and not result.get('is_pagination')
+            and not _redirect_source
+            and not is_canonicalised
+            and 200 <= _status < 300)
+        try:
+            result['issues'].extend(page_checks.extra_issues(
+                raw_html, soup, hdrs, result, result.get('url') or url, domain,
+                content_checks=_content_ok))
+        except Exception as e:
+            result.setdefault('render_errors', []).append(f'page_checks: {str(e)[:120]}')
 
         # --- Issues that apply regardless of indexability ---
         # Canonicalised flag — surfaced even when content checks are skipped
@@ -2397,6 +2991,11 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                 elif sev == 'high':
                     fields = ', '.join(result['js_diff'].get('fields', [])) or 'h1/word_count'
                     result['issues'].append(f'JS-only content (high: {fields})')
+                # Google may skip rendering a page whose HTML says noindex, so
+                # a script that removes the tag may never run for Googlebot.
+                if nojs.get('noindex') and result.get('indexable', True):
+                    result['issues'].append('noindex in the HTML is removed by JavaScript (Google may skip '
+                                            'rendering a noindex page, so it can stay out of the index)')
             except Exception as e:
                 result.setdefault('render_errors', []).append(f'no-js diff: {str(e)[:160]}')
 
@@ -2409,7 +3008,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         result['error'] = 'SSL certificate error'
         _m = str(e)
         if 'CERTIFICATE_VERIFY_FAILED' in _m or 'unable to get local issuer' in _m or 'self signed' in _m.lower():
-            result['issues'].append('SSL certificate verification failed (incomplete chain or untrusted/self-signed cert) — loads in browsers but blocks crawlers')
+            result['issues'].append('SSL certificate verification failed (incomplete chain or untrusted/self-signed cert): loads in browsers but blocks crawlers')
         else:
             result['issues'].append('SSL error: ' + str(e)[:90])
     except requests.exceptions.ConnectionError as e:
@@ -2418,11 +3017,11 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         result['error'] = 'Connection error'
         _m = str(e).lower()
         if 'name or service not known' in _m or 'failed to resolve' in _m or 'nodename nor servname' in _m:
-            result['issues'].append('Connection error — DNS lookup failed (domain not resolving)')
+            result['issues'].append('Connection error: DNS lookup failed (domain not resolving)')
         elif 'refused' in _m:
-            result['issues'].append('Connection error — connection refused (server not accepting connections)')
+            result['issues'].append('Connection error: connection refused (server not accepting connections)')
         elif 'reset' in _m:
-            result['issues'].append('Connection error — connection reset (often bot/WAF blocking non-browser clients)')
+            result['issues'].append('Connection error: connection reset (often bot/WAF blocking non-browser clients)')
         else:
             result['issues'].append('Connection error')
     except Exception as e:
@@ -2432,11 +3031,10 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
     return result
 
 
-def _teardown_pw(pw_page, pw_browser, pw_ctx):
-    for name, obj, method in (('page', pw_page, 'close'), ('browser', pw_browser, 'close'), ('pw', pw_ctx, 'stop')):
-        if obj is not None:
-            try: getattr(obj, method)()
-            except Exception: pass
+def _teardown_pw(pw_renderer):
+    if pw_renderer is not None:
+        try: pw_renderer.close()
+        except Exception: pass
 
 
 
@@ -2452,15 +3050,21 @@ _SITEMAP_DEFAULT_PATHS = (
     '/post-sitemap.xml', '/page-sitemap.xml',
 )
 _SITEMAP_NS = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
+# host -> (time, [sitemap entries]); see _discover_sitemaps.
+_SITEMAP_DISCOVERY_CACHE = {}
+_SITEMAP_DISCOVERY_TTL = 300
 
 
 def _discover_sitemaps(domain):
-    """Find sitemap URLs for a domain. Tries robots.txt first, then common
-    default paths. When robots.txt points at a sibling subdomain (multisite
-    misconfiguration) we surface a warning AND also probe the analysed
-    domain's own paths so the diff isn't comparing the crawl against the
-    wrong site's URL set.
+    """Find sitemap URLs for a domain. Tries robots.txt first (authoritative),
+    then common default paths on the analysed domain itself.
+
+    /sitemap.xml is probed even when robots.txt declared a sitemap: robots.txt
+    sometimes points at a sibling subdomain's sitemap (multisite
+    misconfiguration), and then the analysed domain's own sitemap must be
+    found too, or the crawl is diffed against the wrong site's URL set.
     """
+    import time as _time
     found = []
     seen = set()
     warnings = []
@@ -2473,47 +3077,91 @@ def _discover_sitemaps(domain):
 
     analysed_host = (urlparse(domain).netloc or '').lower()
 
-    try:
-        r = _http_get(f"{domain.rstrip('/')}/robots.txt", timeout=10,
-                         headers={'User-Agent': 'Mozilla/5.0'})
-        if r.ok and r.text:
-            for line in r.text.splitlines():
-                line = line.strip()
-                if line.lower().startswith('sitemap:'):
-                    sm_url = line.split(':', 1)[1].strip()
-                    sm_host = (urlparse(sm_url).netloc or '').lower()
-                    src = 'robots.txt'
-                    if sm_host and analysed_host and sm_host != analysed_host:
-                        src = 'robots.txt (DIFFERENT DOMAIN)'
-                        warnings.append(
-                            f"robots.txt declares sitemap on a different host ({sm_host}) "
-                            f"than the site being analysed ({analysed_host}). "
-                            f"Likely multisite misconfiguration — also probing default paths."
-                        )
-                    _add(sm_url, src)
-    except Exception:
-        pass
+    # A crawl that just finished has often pushed the host into a brief rate
+    # limit. Reuse a discovery from the last few minutes instead of probing
+    # the same host again straight away.
+    cached = _SITEMAP_DISCOVERY_CACHE.get(analysed_host)
+    if cached and (_time.time() - cached[0]) < _SITEMAP_DISCOVERY_TTL:
+        for entry in cached[1]:
+            _add(entry['url'], entry['source'] + ' (cached)')
+        return found, warnings
 
+    # 1. robots.txt: Sitemap: lines are the most reliable signal. One retry
+    # after a short wait on a rate limit or server error, which is what a
+    # host often answers right after the crawl burst.
+    robots_url = f"{domain.rstrip('/')}/robots.txt"
+    robots_text = ''
+    robots_status = None
+    robots_error = None
+    for attempt in range(2):
+        try:
+            r = _http_get(robots_url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+            robots_status = r.status_code
+            if r.ok and r.text:
+                robots_text = r.text
+                break
+            if r.status_code in (429, 500, 502, 503, 504) and attempt == 0:
+                _time.sleep(4)
+                continue
+            break
+        except Exception as e:
+            robots_error = str(e)[:120]
+            if attempt == 0:
+                _time.sleep(4)
+                continue
+            break
+    if robots_text:
+        for line in robots_text.splitlines():
+            line = line.strip()
+            if line.lower().startswith('sitemap:'):
+                sm_url = line.split(':', 1)[1].strip()
+                sm_host = (urlparse(sm_url).netloc or '').lower()
+                src = 'robots.txt'
+                if sm_host and analysed_host and sm_host != analysed_host:
+                    src = 'robots.txt (DIFFERENT DOMAIN)'
+                    warnings.append(
+                        f"robots.txt declares sitemap on a different host ({sm_host}) "
+                        f"than the site being analysed ({analysed_host}). "
+                        f"Likely multisite misconfiguration, so default paths were probed too."
+                    )
+                _add(sm_url, src)
+    elif robots_status and robots_status >= 400:
+        warnings.append(
+            f"robots.txt returned HTTP {robots_status}, so sitemap discovery may be "
+            f"incomplete. If a crawl just finished, the host may be rate limiting: "
+            f"wait a moment and analyse again."
+        )
+    elif robots_error:
+        warnings.append(f"Could not fetch robots.txt: {robots_error}")
+
+    # 2. Default paths. /sitemap.xml is always probed: it is the usual front
+    # door and often redirects to whatever robots.txt declared. The rest of
+    # the list is only tried when no sitemap on this host turned up yet. The
+    # final URL after redirects is what gets recorded, so /sitemap.xml that
+    # redirects to /sitemap_index.xml dedupes against the declared one.
     has_onsite = any((urlparse(s['url']).netloc or '').lower() == analysed_host for s in found)
-    if not has_onsite:
-        for path in _SITEMAP_DEFAULT_PATHS:
-            url = f"{domain.rstrip('/')}{path}"
-            try:
-                resp = _http_head(url, timeout=8, allow_redirects=True,
-                                     headers={'User-Agent': 'Mozilla/5.0'})
-                if resp.status_code == 405:
-                    resp = _http_get(url, timeout=10, allow_redirects=True,
-                                        headers={'User-Agent': 'Mozilla/5.0'},
-                                        stream=True)
-                    resp.close()
-                if resp.ok:
-                    ct = (resp.headers.get('content-type') or '').lower()
-                    if 'xml' in ct or path.endswith('.xml') or path.endswith('.gz'):
-                        _add(url, 'default-path')
-                        break
-            except Exception:
-                pass
+    paths_to_probe = ['/sitemap.xml'] if has_onsite else list(_SITEMAP_DEFAULT_PATHS)
+    for path in paths_to_probe:
+        url = f"{domain.rstrip('/')}{path}"
+        try:
+            resp = _http_head(url, timeout=8, allow_redirects=True,
+                              headers={'User-Agent': 'Mozilla/5.0'})
+            if resp.status_code == 405:
+                resp = _http_get(url, timeout=10, allow_redirects=True,
+                                 headers={'User-Agent': 'Mozilla/5.0'}, stream=True)
+                resp.close()
+            if resp.ok:
+                final_url = resp.url or url
+                ct = (resp.headers.get('content-type') or '').lower()
+                if 'xml' in ct or path.endswith('.xml') or path.endswith('.gz'):
+                    _add(final_url, 'default-path')
+                    if not has_onsite:
+                        break  # one default is enough on the full fallback
+        except Exception:
+            pass
 
+    if found:
+        _SITEMAP_DISCOVERY_CACHE[analysed_host] = (_time.time(), [dict(e) for e in found])
     return found, warnings
 
 
@@ -2639,13 +3287,62 @@ def _norm_url(u):
         return u.rstrip('/').lower()
 
 
+def _is_redirect_source(r):
+    """True when a row stands for a redirect's source rather than a page.
+
+    The crawler follows redirects and stores the row under the URL it landed
+    on, with redirect_url set to that same URL (and original_url to where it
+    started). So redirect_url alone does not make a row a redirect: that row is
+    the landing page, often the start page itself (example.com -> www).
+    """
+    if r.get('redirect_only'):
+        return True
+    rd = r.get('redirect_url')
+    return bool(rd) and _norm_url(rd) != _norm_url(r.get('url') or '')
+
+
+_REDIRECT_ISSUE_RE = _re.compile(r'redirect \(\d+ hops?\)$', _re.I)
+
+
+def _redirect_only_row(requested_url, landed):
+    """A row for a URL that only redirects to a page the crawl already holds.
+
+    The landing page has its own row, so this one carries no content: the
+    requested URL, its 3xx, where it goes and the redirect issue. Pages that
+    link to it find it through the inlinks keyed under requested_url, and the
+    Redirects view lists it, so a link to /about that 301s to /about/ shows up
+    whichever of the two the crawl reached first.
+    """
+    chain = landed.get('redirect_chain') or []
+    status = landed.get('redirect_status') or (chain[0].get('status') if chain else None) or 301
+    return {
+        'url': requested_url, 'status_code': status, 'content_type': '', 'last_modified': '',
+        'response_time': landed.get('response_time', 0),
+        'title': '', 'title_len': 0, 'meta_description': '', 'meta_len': 0,
+        'h1': '', 'h1_list': [], 'h2_list': [], 'h2_count': 0,
+        'canonical': '', 'canonical_match': False, 'canonical_kind': None,
+        'word_count': 0, 'internal_links': 0, 'external_links': 0,
+        'internal_link_urls': [], 'external_link_urls': [], 'images_total': 0, 'images_no_alt': 0,
+        # indexable speaks for noindex only, as on 404 rows; the status says the rest.
+        'schema_types': [], 'indexable': True, 'is_pagination': False,
+        'issues': [i for i in (landed.get('issues') or []) if _REDIRECT_ISSUE_RE.search(str(i))],
+        'error': None, 'depth': landed.get('depth', 0),
+        'redirect_url': landed.get('url'), 'redirect_kind': landed.get('redirect_kind'),
+        'redirect_status': status, 'redirect_hops': landed.get('redirect_hops') or len(chain[:-1]) or 1,
+        'redirect_chain': chain, 'redirect_only': True,
+        'body_hash': '', 'security': {}, 'mixed_content': [],
+        'url_issues': landed.get('url_issues') or [], 'hreflang': [], 'x_robots_tag': '',
+        'og_tags': {}, 'twitter_tags': {}, 'analytics': [], 'retries': landed.get('retries', 0),
+    }
+
+
 @app.route('/fetch-robots-txt', methods=['GET'])
 def fetch_robots_txt():
     """Fetch a site's robots.txt for the URL filters preview panel."""
     target = (request.args.get('url') or '').strip()
     if not target:
         return jsonify({'error': 'url required'}), 400
-    if not target.startswith('http'):
+    if not _HAS_SCHEME_RE.match(target):
         target = 'https://' + target.lstrip('/')
     try:
         parsed = urlparse(target)
@@ -2666,7 +3363,6 @@ def fetch_robots_txt():
         return jsonify({'error': str(e)[:200]}), 200
 
 
-@app.route('/sitemap-analyse', methods=['POST'])
 def _bare_host(url):
     """Normalise a URL/domain to a bare host for matching: strip scheme,
     www., path and trailing slash."""
@@ -2706,11 +3402,12 @@ def _foreign_host_warning(foreign_hosts, domain):
         return None
     total = sum(foreign_hosts.values())
     detail = ', '.join(f"{h} ({n})" for h, n in sorted(foreign_hosts.items(), key=lambda x: -x[1]))
-    return (f"Excluded {total} sitemap URL(s) on a different host — {detail} — from the "
+    return (f"Excluded {total} sitemap URL(s) on a different host ({detail}) from the "
             f"orphan / coverage diff. They belong to another site, not {_bare_host(domain)}, "
             f"so they are not orphans of this crawl.")
 
 
+@app.route('/sitemap-analyse', methods=['POST'])
 def sitemap_analyse():
     """Discover the site's sitemap(s) and diff against a crawl.
 
@@ -2719,7 +3416,7 @@ def sitemap_analyse():
     """
     data = request.get_json() or {}
     domain = (data.get('domain') or '').rstrip('/')
-    if domain and not domain.startswith('http'):
+    if domain and not _HAS_SCHEME_RE.match(domain):
         domain = 'https://' + domain
     results = data.get('results') or []
     inlinks_map = data.get('inlinks') or {}
@@ -2729,7 +3426,7 @@ def sitemap_analyse():
         return jsonify({'error': 'domain required'}), 400
 
     if manual_sm:
-        if not manual_sm.startswith('http'):
+        if not _HAS_SCHEME_RE.match(manual_sm):
             manual_sm = 'https://' + manual_sm.lstrip('/')
         discovered = [{'url': manual_sm, 'source': 'manual'}]
         discovery_warnings = []
@@ -2754,11 +3451,24 @@ def sitemap_analyse():
         discovery_warnings = list(discovery_warnings) + [_fh_warning]
 
     crawl_by_norm = {}
+    # A redirected row carries the URL it landed on; the URL that was asked
+    # for (and that a sitemap lists) is in original_url. Without this second
+    # index a redirecting sitemap URL looked uncrawled and was reported as
+    # "in sitemap, not crawled" instead of as a redirect.
+    redirected_from = {}
     for r in results:
         u = r.get('url')
         if not u:
             continue
+        # A redirect_only row (/about -> /about/) normalises to its target's
+        # key; it may fill an empty slot but never displaces the page's row.
+        if r.get('redirect_only'):
+            crawl_by_norm.setdefault(_norm_url(u), r)
+            continue
         crawl_by_norm[_norm_url(u)] = r
+        ou = r.get('original_url')
+        if ou and _norm_url(ou) != _norm_url(u):
+            redirected_from.setdefault(_norm_url(ou), r)
 
     sitemap_by_norm = {}
     for entry in sm_urls:
@@ -2786,7 +3496,7 @@ def sitemap_analyse():
             continue
         if sc and sc != 200:
             continue
-        if r.get('redirect_url'):
+        if _is_redirect_source(r):
             continue
         if r.get('is_pagination'):
             continue
@@ -2813,9 +3523,12 @@ def sitemap_analyse():
         original_url = entry['url']
         if pag_re.search(urlparse(original_url).path) or pag_re.search('?' + (urlparse(original_url).query or '')):
             pagination_in_sitemap.append(original_url)
-        crawled = crawl_by_norm.get(nrm) or canonical_to_row.get(nrm)
+        crawled = crawl_by_norm.get(nrm) or redirected_from.get(nrm) or canonical_to_row.get(nrm)
         if crawled is None:
-            sitemap_only.append({'url': original_url, 'lastmod': entry.get('lastmod')})
+            # Not crawled is not the same as not linked: a capped crawl stops
+            # before pages it has already found links to.
+            sitemap_only.append({'url': original_url, 'lastmod': entry.get('lastmod'),
+                                 'linked_from': len(inlinks_by_norm.get(nrm) or [])})
             continue
         sc = crawled.get('status_code') or 0
         if sc and sc != 200:
@@ -2836,7 +3549,7 @@ def sitemap_analyse():
                 'url': original_url,
                 'reason': 'noindex',
             })
-        if (sc == 200 and not crawled.get('redirect_url')
+        if (sc == 200 and _norm_url(crawled.get('url')) == nrm and not _is_redirect_source(crawled)
                 and crawled.get('indexable', True)
                 and not inlinks_by_norm.get(nrm)):
             orphan_in_sitemap.append(original_url)
@@ -2846,7 +3559,7 @@ def sitemap_analyse():
         warnings.append('At least one sitemap is served over HTTP, not HTTPS.')
     for sm in sitemaps_meta:
         if (sm.get('url_count') or 0) > 50000:
-            warnings.append(f"{sm['url']} contains {sm['url_count']} URLs — over the 50,000 sitemap limit.")
+            warnings.append(f"{sm['url']} contains {sm['url_count']} URLs, over the 50,000 sitemap limit.")
     no_lastmod = sum(1 for u in sm_urls if not u.get('lastmod'))
     if sm_urls and no_lastmod / len(sm_urls) > 0.5:
         warnings.append(f"{no_lastmod}/{len(sm_urls)} URLs in sitemap are missing <lastmod>.")
@@ -3002,19 +3715,32 @@ def recrawl_url():
     """Re-crawl a single URL and return fresh page audit data."""
     import requests as _req
     from urllib.parse import urlparse
+    import time as _time
+    from urllib.parse import urlunparse as _uup, parse_qsl as _pqsl, urlencode as _uenc
     data = request.get_json() or {}
     url = (data.get('url') or '').strip()
     if not url:
         return jsonify({'error': 'URL required'}), 400
-    domain = urlparse(url).netloc
+    parsed = urlparse(url)
+    # Same form the crawl uses (lower case, no www.), or every internal link
+    # on a www site is judged external and the row loses its link counts.
+    domain = parsed.netloc.lower().replace('www.', '')
+    # Recrawl is for "I just fixed this page". Ask past any page cache: a
+    # throwaway query parameter misses URL-keyed CDN caches and the headers
+    # ask the rest to revalidate. The row is still keyed on the real URL.
+    qs = _pqsl(parsed.query, keep_blank_values=True)
+    qs.append(('_cb', str(int(_time.time() * 1000))))
+    fetch_url = _uup(parsed._replace(query=_uenc(qs)))
     try:
         with _req.Session() as session:
             session.headers.update({
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36',
                 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.9',
                 'Accept-Language': 'en-US,en;q=0.9',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache',
             })
-            result = _crawl_page(url, session, domain)
+            result = _crawl_page(fetch_url, session, domain, effective_url=url)
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -3058,7 +3784,7 @@ def _probe_url_traps(base, results, session):
             entry = {'kind': kind, 'url': purl, 'status': resp.status_code}
             if resp.status_code == 200:
                 out['soft_404' if kind == 'root' else 'nested_trap'] = True
-                m = re.search(r'<title[^>]*>(.*?)</title>', resp.text[:30000], re.I | re.S)
+                m = re.search(r'<title[^>]*>(.*?)</title>', _decoded_html(resp)[:30000], re.I | re.S)
                 title = (m.group(1).strip() if m else '')[:200]
                 if title:
                     entry['title'] = title
@@ -3068,6 +3794,489 @@ def _probe_url_traps(base, results, session):
         except Exception as e:
             out['probes'].append({'kind': kind, 'url': purl, 'error': str(e)[:120]})
     return out
+
+
+# =============================================================================
+# Bot readability check
+# =============================================================================
+# Re-requests a sample of pages as a browser and as each crawler that
+# publishes its user-agent string, then compares what comes back: status,
+# blocks and challenges, redirects, title, H1, canonical, robots directives
+# and the main text. The pages are also rendered once, to measure how much of
+# each page only exists after JavaScript runs, and Googlebot's smartphone and
+# desktop responses are compared for mobile-first indexing.
+#
+# The agent list comes from the operators' own pages, checked 2026-10-15
+# (user agents, who renders JavaScript, how they verify their crawlers).
+#
+# These requests come from this machine with a bot's user agent. CDNs verify
+# real crawlers by IP address or signature, so a block, a challenge or a
+# clean pass here can differ from what the real crawler gets, in either
+# direction. Results are worded "request sending X's user agent", never
+# "what X sees".
+
+_BOT_CHROME = '132.0.0.0'
+# id, label, kind, renders JavaScript (True, False, or None when the operator
+# does not say), user agent, robots.txt token
+_BOT_AGENTS = [
+    ('browser', 'Browser', 'baseline', True,
+     f'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{_BOT_CHROME} Safari/537.36',
+     None),
+    ('googlebot', 'Googlebot smartphone', 'search', True,
+     f'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) '
+     f'Chrome/{_BOT_CHROME} Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+     'Googlebot'),
+    ('googlebot-desktop', 'Googlebot desktop', 'search', True,
+     f'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) '
+     f'Chrome/{_BOT_CHROME} Safari/537.36',
+     'Googlebot'),
+    ('bingbot', 'Bingbot', 'search', True,
+     f'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) '
+     f'Chrome/{_BOT_CHROME} Safari/537.36',
+     'Bingbot'),
+    ('applebot', 'Applebot', 'search', True,
+     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) '
+     'Version/17.4 Safari/605.1.15 (Applebot/0.1; +http://www.apple.com/go/applebot)',
+     'Applebot'),
+    ('oai-searchbot', 'OAI-SearchBot', 'ai-search', None,
+     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+     'Chrome/131.0.0.0 Safari/537.36; compatible; OAI-SearchBot/1.4; +https://openai.com/searchbot',
+     'OAI-SearchBot'),
+    ('perplexitybot', 'PerplexityBot', 'ai-search', None,
+     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
+     'PerplexityBot'),
+    ('chatgpt-user', 'ChatGPT-User', 'ai-assistant', None,
+     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ChatGPT-User/1.0; +https://openai.com/bot',
+     'ChatGPT-User'),
+    ('gptbot', 'GPTBot', 'training', None,
+     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; GPTBot/1.4; +https://openai.com/gptbot',
+     'GPTBot'),
+    ('ccbot', 'CCBot', 'training', False, 'CCBot/2.0 (https://commoncrawl.org/faq/)', 'CCBot'),
+]
+# robots.txt tokens with no published user agent, or that are not crawlers
+# at all (Google-Extended and Applebot-Extended only control how data the
+# main crawler collected may be used): only their robots.txt rules are read.
+_BOT_ROBOTS_ONLY = [
+    ('claudebot', 'ClaudeBot', 'training', 'ClaudeBot'),
+    ('claude-searchbot', 'Claude-SearchBot', 'ai-search', 'Claude-SearchBot'),
+    ('claude-user', 'Claude-User', 'ai-assistant', 'Claude-User'),
+    ('google-extended', 'Google-Extended', 'training', 'Google-Extended'),
+    ('applebot-extended', 'Applebot-Extended', 'training', 'Applebot-Extended'),
+]
+_BOT_KIND_WORD = {'search': 'Search', 'ai-search': 'AI search',
+                  'ai-assistant': 'AI assistant', 'training': 'Training'}
+# Statuses that mean the request was turned away rather than answered.
+_BOT_BLOCK_STATUSES = (401, 403, 429, 503)
+
+
+def _robots_rules_for(groups, token):
+    """Allow and disallow rules for one crawler: the group that names it,
+    else the * group. Applebot follows Googlebot's group when robots.txt does
+    not name Applebot (Apple's documentation)."""
+    t = (token or '*').lower()
+    group = groups.get(t)
+    if group is None and t == 'applebot':
+        group = groups.get('googlebot')
+    if group is None:
+        group = groups.get('*') or {}
+    return ([v for v in group.get('allow', []) if v],
+            [v for v in group.get('disallow', []) if v])
+
+
+def _robots_allows(allows, disallows, url):
+    """Google's precedence: the longest matching rule wins, and a tie goes to
+    Allow."""
+    best_allow = max((len(a) for a in allows if _robots_pattern_match(a, url)), default=-1)
+    best_disallow = max((len(d) for d in disallows if _robots_pattern_match(d, url)), default=-1)
+    return best_disallow <= best_allow
+
+
+def _bot_section(url):
+    try:
+        segs = [s for s in urlparse(url).path.split('/') if s]
+    except ValueError:
+        return ''
+    return segs[0].lower() if segs else ''
+
+
+def _bot_sample(results, n=10):
+    """Pages for the check: the start page, then one page from each top-level
+    section (shallowest first), then the shallowest pages left."""
+    pages = []
+    for r in results or []:
+        u = r.get('url') or ''
+        ctype = (r.get('content_type') or 'text/html').lower()
+        # A row the crawler followed through a redirect is stored under the
+        # URL it landed on (the start page, when the typed URL redirects to
+        # https or www), so it is a normal page here. Only a row whose own URL
+        # sends the request elsewhere is skipped.
+        redir = r.get('redirect_url')
+        if (not _HAS_SCHEME_RE.match(u) or (r.get('status_code') or 0) != 200
+                or (redir and _norm_url(redir) != _norm_url(u))
+                or r.get('indexable') is False or 'html' not in ctype
+                or r.get('canonical_kind') == 'canonicalised'):
+            continue
+        pages.append(r)
+    pages.sort(key=lambda r: ((r.get('depth') or 0), len(r.get('url') or '')))
+    # The same page under two URLs (/ and /index.html) would only spend a
+    # slot twice: skip a body the sample already has.
+    chosen, sections, bodies = [], set(), set()
+
+    def take(r):
+        h = r.get('body_hash')
+        if h and h in bodies:
+            return False
+        chosen.append(r['url'])
+        if h:
+            bodies.add(h)
+        return True
+
+    for r in pages:
+        if len(chosen) >= n:
+            break
+        sec = _bot_section(r['url'])
+        if (not chosen or sec not in sections) and take(r):
+            sections.add(sec)
+    for r in pages:
+        if len(chosen) >= n:
+            break
+        if r['url'] not in chosen:
+            take(r)
+    return chosen
+
+
+def _bot_directives(soup, headers, token):
+    """robots directives that apply to one crawler: the generic robots meta
+    and X-Robots-Tag, plus any meta or header line naming that crawler."""
+    parts = []
+    names = {'robots'}
+    if token:
+        names.add(token.lower())
+    for m in soup.find_all('meta'):
+        if (m.get('name') or '').strip().lower() in names:
+            parts.append((m.get('content') or '').lower())
+    parts.extend(page_checks.x_robots_for(headers.get('x-robots-tag') or '', token))
+    return ' '.join(parts)
+
+
+def _bot_fetch(url, ua, timeout=15):
+    """One request with a given user agent, fresh session, no cookies."""
+    t0 = time.time()
+    headers = {'User-Agent': ua, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+               'Accept-Language': 'en'}
+    try:
+        try:
+            resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True)
+        except requests.exceptions.SSLError:
+            resp = requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, verify=False)
+    except requests.RequestException as e:
+        return {'error': str(e)[:160], 'ms': int((time.time() - t0) * 1000)}
+    snap = {
+        'status': resp.status_code,
+        'final_url': resp.url,
+        'hops': len(resp.history),
+        'ms': int((time.time() - t0) * 1000),
+        'bytes': len(resp.content or b''),
+        'cdn': resp.headers.get('cf-mitigated') or '',
+    }
+    snap['waf'] = _detect_waf_block(resp) or ''
+    snap['challenge'] = bool(snap['cdn'] == 'challenge' or _is_challenge_response(resp))
+    ctype = (resp.headers.get('Content-Type') or '').lower()
+    html = _decoded_html(resp) if ('html' in ctype or not ctype) else ''
+    snap['_html'] = html
+    snap['_headers'] = {k.lower(): v for k, v in resp.headers.items()}
+    return snap
+
+
+def _bot_read(snap, token, base_url):
+    """Fields compared between agents, parsed from one response."""
+    html = snap.get('_html') or ''
+    soup = BeautifulSoup(html, 'html.parser')
+    t = soup.find('title')
+    h1 = soup.find('h1')
+    can = soup.find('link', attrs={'rel': 'canonical'})
+    # The title is compared as its own field, so it stays out of the text:
+    # otherwise one changed title also reads as changed copy.
+    text = _content_text(_re.sub(r'<title[^>]*>.*?</title>', ' ', html, flags=_re.S | _re.I))
+    words = text.split()
+    low = [w.lower() for w in words[:5000]]
+    directives = _bot_directives(soup, snap.get('_headers') or {}, token)
+    return {
+        'title': ' '.join(t.get_text(' ', strip=True).split()) if t else '',
+        'h1': ' '.join(h1.get_text(' ', strip=True).split()) if h1 else '',
+        'canonical': urljoin(snap.get('final_url') or base_url, can.get('href', '').strip()) if can and can.get('href') else '',
+        'noindex': 'noindex' in directives or _re.search(r'(^|[\s,])none([\s,]|$)', directives) is not None,
+        'words': len(words),
+        'shingles': {' '.join(low[i:i + 3]) for i in range(max(0, len(low) - 2))},
+    }
+
+
+def _bot_similarity(a, b):
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _bot_compare(base, base_read, snap, read, base_selfsim):
+    """State of one agent's response against the browser's: blocked,
+    challenged, error, redirected, noindex, different, thinner or same."""
+    if snap.get('error'):
+        return {'state': 'error', 'detail': snap['error'][:120]}
+    status = snap.get('status') or 0
+    if snap.get('challenge') and base.get('status') == 200:
+        return {'state': 'challenged', 'status': status,
+                'detail': f"{'Cloudflare' if snap.get('cdn') or snap.get('waf') == 'cloudflare' else 'CDN'} challenge (HTTP {status})"}
+    if status in _BOT_BLOCK_STATUSES and base.get('status') == 200:
+        who = f", {snap['waf'].title()}" if snap.get('waf') else ''
+        return {'state': 'blocked', 'status': status, 'detail': f'HTTP {status}{who}'}
+    if status != (base.get('status') or 0):
+        return {'state': 'different', 'status': status, 'fields': ['status'],
+                'detail': f"HTTP {status}, a browser got {base.get('status')}"}
+    if _norm_url(snap.get('final_url') or '') != _norm_url(base.get('final_url') or ''):
+        return {'state': 'redirected', 'status': status, 'detail': f"to {snap.get('final_url')}"}
+    if read['noindex'] and not base_read['noindex']:
+        return {'state': 'noindex', 'status': status, 'detail': 'noindex applies to this crawler'}
+    fields = [f for f in ('title', 'h1', 'canonical') if (read[f] or '') != (base_read[f] or '')]
+    sim = _bot_similarity(base_read['shingles'], read['shingles'])
+    # How much of the crawler's text the browser also got. A cut-down copy
+    # of the browser's page scores high here and low on sim: that is a
+    # thinner page, not different content.
+    inside = (len(base_read['shingles'] & read['shingles']) / len(read['shingles'])) if read['shingles'] else 1.0
+    # A page that changes between two browser requests (rotating banners,
+    # dates, tokens) earns a looser text threshold.
+    threshold = min(0.8, base_selfsim - 0.15)
+    shorter = base_read['words'] >= 50 and read['words'] < 0.7 * base_read['words']
+    out = {'status': status, 'words': read['words'], 'sim': round(sim, 2)}
+    if sim < threshold and base_read['words'] >= 20 and not (shorter and inside >= 0.8):
+        fields.append('text')
+    if fields:
+        out.update(state='different', fields=fields, detail=', '.join('H1' if f == 'h1' else f for f in fields))
+        return out
+    if shorter:
+        out.update(state='thinner', detail=f"{read['words']} of {base_read['words']} words")
+        return out
+    out.update(state='same', detail='same page as a browser')
+    return out
+
+
+def _bot_page_issues(label, kind, cell):
+    """Issue strings for one agent on one page (none for a clean result)."""
+    k = _BOT_KIND_WORD.get(kind, kind)
+    s = cell.get('state')
+    if s == 'blocked':
+        return [f"{k} bot blocked: {label} ({cell.get('detail')})"]
+    if s == 'challenged':
+        return [f"{k} bot challenged: {label} ({cell.get('detail')})"]
+    if s == 'different':
+        return [f"{k} bot sees different content: {label} ({cell.get('detail')})"]
+    if s == 'thinner':
+        return [f"{k} bot sees a thinner page: {label} ({cell.get('detail')})"]
+    if s == 'redirected':
+        return [f"{k} bot redirected elsewhere: {label} ({cell.get('detail')})"]
+    if s == 'noindex':
+        return [f"noindex only for {label} (meta or X-Robots-Tag naming it)"]
+    return []
+
+
+def _bot_check_run(urls, delay=0.4, render=True):
+    """Generator of progress events, ending with {'type': 'result', 'report': ...}."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    live = [a for a in _BOT_AGENTS]
+    jobs = [(u, a[0], a[4]) for u in urls for a in live]
+    jobs += [(u, 'browser-again', _BOT_AGENTS[0][4]) for u in urls]
+    total = len(jobs) + (len(urls) if render else 0)
+    done = 0
+    snaps = {}
+
+    # Requests start at most once per `delay` seconds across all workers,
+    # the same per-host pace the crawl itself keeps.
+    pace = threading.Lock()
+    next_at = [0.0]
+
+    def run(job):
+        u, agent_id, ua = job
+        with pace:
+            now = time.time()
+            start = max(now, next_at[0])
+            next_at[0] = start + delay
+        if start > now:
+            time.sleep(start - now)
+        return job, _bot_fetch(u, ua)
+
+    yield {'type': 'progress', 'done': 0, 'total': total, 'msg': f'Checking {len(urls)} pages as {len(live) - 1} crawlers and a browser'}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for fut in as_completed([pool.submit(run, j) for j in jobs]):
+            (u, agent_id, _ua), snap = fut.result()
+            snaps[(u, agent_id)] = snap
+            done += 1
+            if done % 5 == 0 or done == len(jobs):
+                yield {'type': 'progress', 'done': done, 'total': total}
+
+    # robots.txt per agent
+    robots_groups, robots_note = None, None
+    try:
+        origin = '{0.scheme}://{0.netloc}'.format(urlparse(urls[0]))
+        rr = requests.get(origin + '/robots.txt', headers={'User-Agent': _BOT_AGENTS[0][4]}, timeout=10)
+        if rr.status_code == 200 and 'html' not in (rr.headers.get('Content-Type') or '').lower():
+            robots_groups = _parse_robots_groups(rr.text)
+        else:
+            robots_note = f'robots.txt returned HTTP {rr.status_code}, so every crawler is allowed by default.'
+            robots_groups = {}
+    except requests.RequestException as e:
+        robots_note = f'robots.txt could not be fetched ({str(e)[:80]}).'
+
+    # Rendered pages, for content that needs JavaScript.
+    rendered, notes = {}, []
+    if render:
+        renderer = None
+        try:
+            renderer = PlaywrightRenderer(user_agent=_BOT_AGENTS[0][4])
+        except Exception as e:
+            notes.append('Content that needs JavaScript was not measured: JS rendering is not installed '
+                         'here. Run one crawl with Render JS ticked to install it.')
+            app.logger.info(f'[bot-check] renderer unavailable: {e}')
+        if renderer is not None:
+            try:
+                for u in urls:
+                    html, err = renderer.render(u)
+                    rendered[u] = None if err else html
+                    done += 1
+                    yield {'type': 'progress', 'done': done, 'total': total}
+            finally:
+                _teardown_pw(renderer)
+
+    pages, page_issues = {}, {}
+    agent_meta = [{'id': a[0], 'label': a[1], 'kind': a[2], 'renders_js': a[3], 'live': True} for a in live]
+    agent_meta += [{'id': r[0], 'label': r[1], 'kind': r[2], 'renders_js': None, 'live': False} for r in _BOT_ROBOTS_ONLY]
+    for u in urls:
+        base = snaps.get((u, 'browser')) or {'error': 'no response'}
+        again = snaps.get((u, 'browser-again')) or {}
+        if base.get('error'):
+            pages[u] = {'baseline': {'error': base['error']}, 'cells': {}}
+            continue
+        base_read = _bot_read(base, None, u)
+        selfsim = _bot_similarity(base_read['shingles'], _bot_read(again, None, u)['shingles']) if again.get('_html') else 1.0
+        cells, issues = {}, []
+        reads = {}
+        for a in live[1:]:
+            aid, label, kind, _js, _ua, token = a
+            snap = snaps.get((u, aid)) or {'error': 'no response'}
+            read = _bot_read(snap, token, u) if not snap.get('error') else None
+            reads[aid] = (snap, read)
+            cell = _bot_compare(base, base_read, snap, read, selfsim) if read else _bot_compare(base, base_read, snap, None, selfsim)
+            cells[aid] = cell
+            if aid != 'googlebot-desktop':
+                issues += _bot_page_issues(label, kind, cell)
+        # robots.txt verdict for every agent, live or not
+        robots = {}
+        if robots_groups is not None:
+            for a in live[1:]:
+                robots[a[0]] = _robots_allows(*_robots_rules_for(robots_groups, a[5]), u)
+            for r in _BOT_ROBOTS_ONLY:
+                robots[r[0]] = _robots_allows(*_robots_rules_for(robots_groups, r[3]), u)
+        # Mobile-first: Googlebot smartphone against Googlebot desktop.
+        mobile = None
+        m_snap, m_read = reads.get('googlebot', (None, None))
+        d_snap, d_read = reads.get('googlebot-desktop', (None, None))
+        if m_read and d_read and (m_snap.get('status') == d_snap.get('status') == 200):
+            diff = [f for f in ('title', 'h1', 'canonical') if (m_read[f] or '') != (d_read[f] or '')]
+            if _norm_url(m_snap.get('final_url') or '') != _norm_url(d_snap.get('final_url') or ''):
+                diff.append('URL')
+            mobile = {'mobile_words': m_read['words'], 'desktop_words': d_read['words'], 'fields': diff}
+            mobile_issue = None
+            if diff:
+                mobile_issue = f"Mobile and desktop pages differ ({', '.join('H1' if f == 'h1' else f for f in diff)})"
+            elif d_read['words'] >= 50 and m_read['words'] < 0.7 * d_read['words']:
+                mobile_issue = f"Mobile page has less content than desktop ({m_read['words']} of {d_read['words']} words)"
+            if mobile_issue:
+                issues.append(mobile_issue)
+                # When desktop Googlebot gets the browser's page, the gap is the
+                # mobile version, not Googlebot: one finding, not two.
+                if cells.get('googlebot-desktop', {}).get('state') == 'same':
+                    gb = [i for i in _bot_page_issues('Googlebot smartphone', 'search', cells.get('googlebot', {}))]
+                    issues = [i for i in issues if i not in gb]
+        # JavaScript: raw HTML against the rendered page.
+        js = None
+        if render and rendered.get(u):
+            r_html = rendered[u]
+            r_words = len(_content_text(r_html).split())
+            r_soup = BeautifulSoup(r_html, 'html.parser')
+            r_noindex = 'noindex' in _bot_directives(r_soup, {}, None)
+            js = {'raw_words': base_read['words'], 'rendered_words': r_words}
+            if r_words >= 50 and base_read['words'] < 0.5 * r_words:
+                issues.append(f"Content needs JavaScript (crawlers that do not run it see "
+                              f"{base_read['words']} of {r_words} words)")
+            raw_meta_noindex = 'noindex' in _bot_directives(BeautifulSoup(base.get('_html') or '', 'html.parser'), {}, None)
+            if raw_meta_noindex and not r_noindex:
+                js['noindex_removed'] = True
+                issues.append('noindex in the HTML is removed by JavaScript (Google may skip rendering '
+                              'a noindex page, so it can stay out of the index)')
+        pages[u] = {
+            'baseline': {'status': base.get('status'), 'words': base_read['words'], 'title': base_read['title'],
+                         'final_url': base.get('final_url'), 'selfsim': round(selfsim, 2)},
+            'cells': cells, 'robots': robots, 'mobile': mobile, 'js': js,
+        }
+        if issues:
+            page_issues[u] = issues
+
+    verdicts = {}
+    for a in live[1:]:
+        counts = {}
+        for u in urls:
+            st = ((pages.get(u) or {}).get('cells') or {}).get(a[0], {}).get('state')
+            if st:
+                counts[st] = counts.get(st, 0) + 1
+        n = sum(counts.values())
+        worst = next((s for s in ('blocked', 'challenged', 'noindex', 'different', 'redirected', 'thinner', 'error')
+                      if counts.get(s)), 'same')
+        verdicts[a[0]] = {'state': worst, 'counts': counts, 'checked': n}
+    report = {
+        'checked_at': int(time.time()),
+        'sample': urls,
+        'agents': agent_meta,
+        'pages': pages,
+        'verdicts': verdicts,
+        'page_issues': page_issues,
+        'robots_note': robots_note,
+        'rendered': bool(rendered),
+        'notes': notes,
+    }
+    yield {'type': 'result', 'report': report}
+
+
+@app.route('/bot-check', methods=['POST'])
+def bot_check():
+    """Stream the bot readability check. Body: {"urls": [...]} to check given
+    pages, or {"results": [...rows], "sample": 10} to pick a sample."""
+    data = request.get_json(silent=True) or {}
+    urls = [u for u in (data.get('urls') or []) if isinstance(u, str) and _HAS_SCHEME_RE.match(u)]
+    if not urls:
+        try:
+            n = max(1, min(int(data.get('sample') or 10), 100))
+        except (TypeError, ValueError):
+            n = 10
+        urls = _bot_sample(data.get('results') or [], n)
+    urls = urls[:100]
+    if not urls:
+        return jsonify({'error': 'No crawled HTML pages returning 200 to check.'}), 400
+    try:
+        delay = max(0.0, min(float(data.get('delay', 0.4)), 5.0))
+    except (TypeError, ValueError):
+        delay = 0.4
+    render = data.get('render', True) is not False
+
+    def generate():
+        try:
+            for ev in _bot_check_run(urls, delay=delay, render=render):
+                yield f"data: {json.dumps(ev)}\n\n"
+        except Exception as e:
+            app.logger.exception('[bot-check] failed')
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)[:200]})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 
 @app.route('/crawl', methods=['POST'])
@@ -3098,6 +4307,7 @@ def crawl_site():
             max_pages = 999999
         max_depth = min(int(cfg.get('max_depth', 10) or 10), 20)
         crawl_delay = max(float(cfg.get('crawl_delay', 0.4) or 0.4), 0.0)
+        auto_throttle = bool(cfg.get('auto_throttle', True))
         render_js = bool(cfg.get('render_js', False))
         ignore_robots = bool(cfg.get('ignore_robots', False))
         ignore_noindex = bool(cfg.get('ignore_noindex', False))
@@ -3108,7 +4318,7 @@ def crawl_site():
         seed_url = (data.get('url', '') or '').strip()
         if not seed_url:
             return json.dumps({'error': 'URL is required'}), 400
-        if not seed_url.startswith('http'):
+        if not _HAS_SCHEME_RE.match(seed_url):
             seed_url = 'https://' + seed_url
 
         max_pages = int(data.get('max_pages', 500) or 500)
@@ -3116,6 +4326,9 @@ def crawl_site():
             max_pages = 999999  # unlimited
         max_depth = min(int(data.get('max_depth', 10) or 10), 20)
         crawl_delay = max(float(data.get('crawl_delay', 0.4) or 0.4), 0.0)
+        # Space requests out on a host that answers slowly (crawl_throttle.py).
+        # On unless the request says otherwise.
+        auto_throttle = bool(data.get('auto_throttle', True))
         render_js = bool(data.get('render_js', False))
         ignore_robots = bool(data.get('ignore_robots', False))
         ignore_noindex = bool(data.get('ignore_noindex', False))
@@ -3260,15 +4473,15 @@ def crawl_site():
                 robots_rules = resp.text.count('Disallow')
                 robots_status = 'ignored' if ignore_robots else 'respecting'
                 robots_issues = _analyze_robots_txt(resp.text)
-                yield f"data: {json.dumps({'type':'info','msg':f'Downloaded robots.txt ({robots_rules} Disallow rules) — {robots_status}'})}\n\n"
+                yield f"data: {json.dumps({'type':'info','msg':f'Downloaded robots.txt ({robots_rules} Disallow rules), {robots_status}'})}\n\n"
                 if robots_issues:
                     yield f"data: {json.dumps({'type':'info','msg':'robots.txt: ' + '; '.join(robots_issues)})}\n\n"
             else:
                 robots_status = 'not found'
-                yield f"data: {json.dumps({'type':'info','msg':f'robots.txt returned HTTP {resp.status_code} — no rules to enforce'})}\n\n"
+                yield f"data: {json.dumps({'type':'info','msg':f'robots.txt returned HTTP {resp.status_code}, no rules to enforce'})}\n\n"
         except Exception as e:
             robots_status = 'error'
-            yield f"data: {json.dumps({'type':'info','msg':f'robots.txt unreachable ({str(e)[:80]}) — continuing without'})}\n\n"
+            yield f"data: {json.dumps({'type':'info','msg':f'robots.txt unreachable ({str(e)[:80]}), continuing without'})}\n\n"
 
         session = requests.Session()
         # Realistic Chrome header set. Default python-requests UA + empty
@@ -3335,24 +4548,32 @@ def crawl_site():
                 challenge_browser = None
 
         # Launch Playwright browser once per crawl if JS rendering requested
-        pw_ctx = None
-        pw_browser = None
-        pw_page = None
+        # Playwright's sync API is bound to the thread that started it, and
+        # pages are fetched on ThreadPoolExecutor workers, so every browser
+        # call goes through PlaywrightRenderer's single dedicated thread.
+        pw_renderer = None
+        js_unavailable = None
         if render_js:
-            try:
-                from playwright.sync_api import sync_playwright
-                pw_ctx = sync_playwright().start()
-                pw_browser = pw_ctx.chromium.launch(headless=True, args=['--no-sandbox', '--disable-dev-shm-usage'])
-                pw_page = pw_browser.new_page(
-                    viewport={'width': 1280, 'height': 900},
-                    user_agent=crawl_ua,
-                )
-                pw_page.set_default_timeout(20000)
-                yield f"data: {json.dumps({'type': 'info', 'msg': 'JS rendering enabled (Playwright). Crawl will be 3-5x slower.'})}\n\n"
-            except Exception as e:
-                app.logger.warning(f"[crawler] Playwright init failed: {e}")
-                yield f"data: {json.dumps({'type': 'info', 'msg': f'JS rendering unavailable ({str(e)[:100]}); using raw HTML only.'})}\n\n"
-                pw_page = None
+            for _pw_attempt in range(2):
+                try:
+                    pw_renderer = PlaywrightRenderer(user_agent=crawl_ua)
+                    yield f"data: {json.dumps({'type': 'info', 'msg': 'JS rendering enabled (Playwright). Crawl will be 3-5x slower.'})}\n\n"
+                    break
+                except Exception as e:
+                    pw_renderer = None
+                    app.logger.warning(f"[crawler] Playwright init failed: {e}")
+                    if _pw_attempt == 0 and _js_renderer_installable(str(e)):
+                        try:
+                            for _msg in _install_js_renderer():
+                                yield f"data: {json.dumps({'type': 'info', 'msg': _msg})}\n\n"
+                            continue
+                        except Exception as ie:
+                            js_unavailable = str(ie)
+                            break
+                    js_unavailable = str(e)
+                    break
+            if js_unavailable:
+                yield f"data: {json.dumps({'type': 'warning', 'msg': f'JS rendering could not start ({js_unavailable[:160]}). Crawling plain HTML only.'})}\n\n"
 
         if resumed_state:
             queue = deque(tuple(item) for item in resumed_state.get('queue', []))
@@ -3361,6 +4582,11 @@ def crawl_site():
             errors = int(resumed_state.get('errors', 0))
             total_time = float(resumed_state.get('total_time', 0))
             inlinks_map = dict(resumed_state.get('inlinks_map', {}))
+            inlink_seen = {(t, e.get('source'), e.get('anchor'), e.get('placement'))
+                           for t, bucket in inlinks_map.items() for e in bucket}
+            recorded = {r.get('url') for r in results if r.get('url')}
+            queued_exact = set(resumed_state.get('queued_exact') or ()) | recorded | {u for u, _d in queue}
+            slash_probes = set(resumed_state.get('slash_probes') or ())
             yield f"data: {json.dumps({'type': 'resumed', 'previous_pages': len(results), 'queued': len(queue), 'errors': errors})}\n\n"
         else:
             queue = deque()
@@ -3378,6 +4604,20 @@ def crawl_site():
             total_time = 0
             # Map of target URL -> list of source URLs linking to it (inlinks / Screaming Frog style)
             inlinks_map = {}
+            # (target, source, anchor, placement) already recorded. A set,
+            # because scanning each bucket was quadratic: sitewide nav links
+            # put thousands of entries in the same buckets, and 4,000 pages
+            # cost close to a minute of CPU in this one loop.
+            inlink_seen = set()
+            # URLs that have a row. A redirect can land on a page that is also
+            # queued under its own URL; without this both fetches got a row.
+            recorded = set()
+            # URLs put on the queue as written. `visited` also holds each one's
+            # slash twin, so a link to /about was never fetched once /about/
+            # was queued, and its 301 never reached the report.
+            queued_exact = {_seed_norm}
+            # Slash twins queued only to see whether they redirect.
+            slash_probes = set()
 
         tracked_kws = []  # left in place for payload compatibility; no external data sources in the public build
         yield f"data: {json.dumps({'type': 'start', 'domain': domain, 'workers': max_workers, 'crawl_id': crawl_id})}\n\n"
@@ -3386,7 +4626,7 @@ def crawl_site():
         # but we want the info up-front so the UI can badge + offer one-click recommendations).
         try:
             cms_resp = session.get(seed_url, timeout=10, allow_redirects=True)
-            cms_info = detect_cms(seed_url, cms_resp.text, dict(cms_resp.headers))
+            cms_info = detect_cms(seed_url, _decoded_html(cms_resp), dict(cms_resp.headers))
             if cms_info.get('cms'):
                 prof = CMS_PROFILES.get(cms_info['cms'], {})
                 cms_info['profile'] = {
@@ -3407,6 +4647,10 @@ def crawl_site():
         host_lock = threading.Lock()
         host_backoff = {}      # host → multiplier for adaptive slow-down on 429/403/503
         host_pause_until = {}  # host → epoch-seconds to halt ALL workers for this host
+        # Latency-aware pacing: a host that answers slowly without ever sending
+        # a 429/503 gets its requests spaced out, and released when it recovers.
+        latency_throttle = crawl_throttle.LatencyThrottle(enabled=auto_throttle)
+        url_retry_count = {}   # url → times requeued after a 429 that outlasted its retries
 
         def _wait_host_turn(u):
             # Reads crawl_delay live from ACTIVE_CRAWL_RULES so the slider in
@@ -3424,7 +4668,7 @@ def crawl_site():
                     last = host_last_fetch.get(host, 0)
                     pause_until = host_pause_until.get(host, 0)
                     backoff = host_backoff.get(host, 1.0)
-                    effective_delay = live_delay * backoff
+                    effective_delay = max(live_delay * backoff, latency_throttle.gap(host))
                     wait = max((last + effective_delay) - now, pause_until - now)
                     if wait <= 0:
                         host_last_fetch[host] = now
@@ -3472,11 +4716,15 @@ def crawl_site():
                     # Decay back toward 1.0 on successes
                     if cur > 1.0:
                         host_backoff[host] = max(1.0, cur * 0.8)
+                    # A healthy response also tells the latency throttle how
+                    # quickly this host is answering.
+                    if 200 <= status < 400:
+                        latency_throttle.record(host, page_data.get('response_time'))
 
         def _fetch_job(url, depth):
             """Worker: politeness-wait, fetch, return (url, depth, page_data)."""
             _wait_host_turn(url)
-            pd = _crawl_page(url, session, domain, pw_page=pw_page, ignore_noindex=ignore_noindex, capture_no_js=compare_no_js, challenge_browser=challenge_browser)
+            pd = _crawl_page(url, session, domain, pw_renderer=pw_renderer, ignore_noindex=ignore_noindex, capture_no_js=compare_no_js, challenge_browser=challenge_browser)
             pd['depth'] = depth
             _adjust_host_backoff(url, pd)
             return url, depth, pd
@@ -3536,6 +4784,10 @@ def crawl_site():
                                 'issues': [f'Fetch error: {str(e)[:80]}'], 'depth': submitted[1] if submitted else 0,
                             }
 
+                        # A host that turned slow (or recovered) since the last result.
+                        for _note in latency_throttle.pop_notices():
+                            yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': _note})}\n\n"
+
                         # Count adaptive signal for surfacing a speed notice
                         status = page_data.get('status_code', 0)
                         _waf_kind = page_data.get('_waf_block')
@@ -3543,14 +4795,28 @@ def crawl_site():
                             # WAF block — surface it immediately, regardless of streak count.
                             # 5-min pause is already applied via _adjust_host_backoff.
                             _pause = max(0, host_pause_until.get(_up(url).netloc, 0) - time.time())
-                            yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': f'{_waf_kind.title()} blocked us — host paused {int(_pause)}s, backoff escalated'})}\n\n"
+                            yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': f'{_waf_kind.title()} blocked the crawler. Host paused {int(_pause)}s and slowed down.'})}\n\n"
                         if status in (429, 503, 403) or status == 0 or page_data.get('error'):
                             consecutive_errors += 1
                             if consecutive_errors in (3, 6, 12):
-                                _reason_code = status if status else 'conn'
-                                yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': f'HTTP {_reason_code} — per-host back-off active'})}\n\n"
+                                _reason_code = status if status else 'connection errors'
+                                yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': f'HTTP {_reason_code}: slowing down for this host'})}\n\n"
                         else:
                             consecutive_errors = max(0, consecutive_errors - 1)
+
+                        # Rate limited past every retry: put the URL back (at most
+                        # 3 tries in all) instead of recording a 429 row. The host
+                        # is now paused and slowed, so the retry goes out after
+                        # the server has had time to recover. The URL stays in
+                        # `visited`, so pages linking to it do not queue copies.
+                        if page_data.get('_rate_limited'):
+                            tries = url_retry_count.get(url, 0) + 1
+                            url_retry_count[url] = tries
+                            if tries < 3:
+                                queue.append((url, depth))
+                                _pause = max(0, host_pause_until.get(_up(url).netloc, 0) - time.time())
+                                yield f"data: {json.dumps({'type': 'speed_adjusted', 'reason': f'HTTP 429: host paused {int(_pause)}s, page queued again (try {tries + 1} of 3)'})}\n\n"
+                                continue
 
                         link_urls = page_data.get('internal_link_urls', [])
 
@@ -3571,10 +4837,26 @@ def crawl_site():
                             _alt = _crawl_slash_alt(canonical_url)
                             if _alt:
                                 visited.add(_alt)
-                            if any(r.get('url') == canonical_url for r in results):
+                            # The page it lands on already has a row (reached
+                            # through a link before this redirect resolved). It
+                            # used to be dropped here, which hid every internal
+                            # link to a redirect whose target was crawled first.
+                            # Keep the redirect itself, without the page.
+                            if canonical_url in recorded:
+                                page_data = _redirect_only_row(url, page_data)
+                                link_urls = []
+                        elif canonical_url:
+                            # A URL fetched as itself. Skip it when a redirect
+                            # already landed on it, or when it is a slash twin
+                            # that answered 200 next to a twin already held:
+                            # the same page under two spellings, as before.
+                            _alt = _crawl_slash_alt(canonical_url)
+                            if canonical_url in recorded or (
+                                    _alt in recorded and (canonical_url in slash_probes or _alt in slash_probes)):
                                 continue
 
                         results.append(page_data)
+                        recorded.add(page_data.get('url'))
                         if page_data.get('error'):
                             errors += 1
                         total_time += page_data.get('response_time', 0)
@@ -3588,10 +4870,11 @@ def crawl_site():
                                 placement = entry[2] if len(entry) > 2 else ''
                             else:
                                 link, anchor, placement = entry, '', ''
-                            bucket = inlinks_map.setdefault(link, [])
-                            key = (source_url, anchor, placement)
-                            if not any((e.get('source'), e.get('anchor'), e.get('placement')) == key for e in bucket):
-                                bucket.append({'source': source_url, 'anchor': anchor, 'placement': placement})
+                            key = (link, source_url, anchor, placement)
+                            if key not in inlink_seen:
+                                inlink_seen.add(key)
+                                inlinks_map.setdefault(link, []).append(
+                                    {'source': source_url, 'anchor': anchor, 'placement': placement})
                             alt = _crawl_slash_alt(link)
                             if link not in visited and (not alt or alt not in visited) and _url_allowed(link):
                                 # Mark on enqueue (not dequeue) so the same URL
@@ -3600,6 +4883,14 @@ def crawl_site():
                                 visited.add(link)
                                 if alt:
                                     visited.add(alt)
+                                queued_exact.add(link)
+                                queue.append((link, depth + 1))
+                            elif (alt and link in visited and link not in queued_exact
+                                  and link not in recorded and _url_allowed(link)):
+                                # Linked as written but only its slash twin was
+                                # queued: fetch it once to see if it redirects.
+                                queued_exact.add(link)
+                                slash_probes.add(link)
                                 queue.append((link, depth + 1))
 
                         # Hreflang discovery — region/language alternates are often
@@ -3621,6 +4912,7 @@ def crawl_site():
                                 visited.add(_href)
                                 if _halt:
                                     visited.add(_halt)
+                                queued_exact.add(_href)
                                 queue.append((_href, depth + 1))
 
                         # Site-level robots.txt findings ride on the homepage row
@@ -3684,6 +4976,8 @@ def crawl_site():
                 'domain': domain,
                 'queue': list(queue),
                 'visited': list(visited),
+                'queued_exact': list(queued_exact),
+                'slash_probes': list(slash_probes),
                 'results': results,
                 'inlinks_map': inlinks_map,
                 'errors': errors,
@@ -3692,6 +4986,7 @@ def crawl_site():
                     'max_pages': max_pages,
                     'max_depth': max_depth,
                     'crawl_delay': crawl_delay,
+                    'auto_throttle': auto_throttle,
                     'render_js': render_js,
                     'compare_no_js': compare_no_js,
                     'ignore_robots': ignore_robots,
@@ -3701,12 +4996,20 @@ def crawl_site():
             }
             app.logger.info(f"[crawler] {crawl_id} suspended (resumable for {SUSPENDED_CRAWL_TTL//60}m): {len(results)} done, {len(queue)} queued")
             session.close()
-            _teardown_pw(pw_page, pw_browser, pw_ctx)
+            _teardown_pw(pw_renderer)
             if challenge_browser is not None:
                 challenge_browser.close()
             ACTIVE_CRAWL_RULES.pop(crawl_id, None)
             ACTIVE_CRAWL_LIMITS.pop(crawl_id, None)
             return
+        except BaseException:
+            # An error, or the browser dropping the stream (GeneratorExit),
+            # skips the cleanup that follows this block. Close the HTTP
+            # session and the headless Chromium here, or they stay alive
+            # until the app restarts.
+            session.close()
+            _teardown_pw(pw_renderer)
+            raise
         finally:
             # The challenge browser owns an Xvfb display and a Chrome process.
             # Close it on every exit path — an unhandled error here would
@@ -3716,7 +5019,7 @@ def crawl_site():
                 challenge_browser.close()
 
         session.close()
-        _teardown_pw(pw_page, pw_browser, pw_ctx)
+        _teardown_pw(pw_renderer)
 
         # Summary
         avg_time = round(total_time / len(results), 2) if results else 0
@@ -3780,7 +5083,7 @@ def crawl_site():
             for r in results:
                 if not (r.get('indexable', True) or ignore_noindex):
                     continue
-                if r.get('redirect_url'):
+                if _is_redirect_source(r):
                     continue
                 if r.get('status_code') and r['status_code'] >= 300:
                     continue
@@ -3871,6 +5174,29 @@ def crawl_site():
         # Soft-404 / infinite-URL-trap probe (2 requests, reuses crawl session)
         url_traps = _probe_url_traps(f"{parsed.scheme}://{parsed.netloc}", results, session)
 
+        # Crawl-level checks: faults that only show with every row in hand,
+        # such as a canonical pointing at a page that cannot be indexed, a
+        # one-way hreflang pair, a dead end with no internal outlinks, or a
+        # page whose only inbound links come from non-indexable pages. Pure and
+        # offline, so it is tuned against saved crawls in test_page_checks.py.
+        _crawl_extra = {}
+        try:
+            _crawl_extra = page_checks.crawl_issues(results, inlinks_map, domain)
+            if _crawl_extra:
+                _by_url = {}
+                for _row in results:
+                    _by_url.setdefault(_row.get('url'), _row)
+                for _u, _extra in _crawl_extra.items():
+                    _row = _by_url.get(_u)
+                    if _row is None:
+                        continue
+                    _issues = _row.setdefault('issues', [])
+                    for _i in _extra:
+                        if _i not in _issues:
+                            _issues.append(_i)
+        except Exception:
+            pass
+
         reports = {
             'url_traps': url_traps,
             'response_codes': rc_buckets,
@@ -3893,21 +5219,37 @@ def crawl_site():
         if len(results) <= 1:
             seed_row = results[0] if results else None
             if not seed_row:
-                stop_reason = 'No pages could be crawled — the start URL could not be fetched.'
+                stop_reason = 'No pages could be crawled: the start URL could not be fetched.'
             elif seed_row.get('error'):
                 extra = '; '.join((seed_row.get('issues') or [])[:2])
-                stop_reason = (f"Crawl stopped at the start page — it returned an error "
+                stop_reason = (f"Crawl stopped at the start page: it returned an error "
                                f"({seed_row.get('error')}). {extra}").strip()
             elif not (seed_row.get('internal_link_urls') or []):
-                stop_reason = ("Crawl stopped at the start page — it loaded but no internal links were found. "
-                               "If the site builds its navigation with JavaScript, turn on 'Render JS' and retry.")
+                if render_js and js_unavailable:
+                    stop_reason = ("Crawl stopped at the start page. Render JS is on, but the JS renderer could not "
+                                   f"start ({js_unavailable[:200]}), so only plain HTML was read and it has no links. "
+                                   f"Install it manually with: {_JS_RENDERER_MANUAL}  then restart the crawler and retry.")
+                elif render_js and seed_row.get('js_rendered'):
+                    stop_reason = ("Crawl stopped at the start page. It was rendered with JavaScript, but no links "
+                                   "or clickable navigation leading to other pages on this site were found.")
+                elif render_js:
+                    _rerr = '; '.join(seed_row.get('render_errors') or [])[:200]
+                    stop_reason = ("Crawl stopped at the start page. Render JS is on, but the page did not render"
+                                   + (f" ({_rerr})" if _rerr else '') + ", so only plain HTML was read and it has no links.")
+                else:
+                    stop_reason = ("Crawl stopped at the start page: it loaded but no internal links were found. "
+                                   "If the site builds its navigation with JavaScript, turn on 'Render JS' and retry.")
             else:
-                stop_reason = ("Crawl stopped at the start page — links were found but none were crawlable "
+                stop_reason = ("Crawl stopped at the start page: links were found but none were crawlable "
                                "(blocked by robots.txt, removed by your URL include/exclude filters, or pointing "
                                "to other domains). Adjust the filters or enable 'Ignore robots.txt' and retry.")
 
         app.logger.info(f"[crawler] Crawl complete: {len(results)} pages, {errors} errors, {avg_time}s avg, {len(dup_titles)} dup titles, {len(orphans)} orphans" + (f" | stop_reason: {stop_reason}" if stop_reason else ""))
-        yield f"data: {json.dumps({'type': 'complete', 'total': len(results), 'summary': summary, 'inlinks': inlinks_payload, 'reports': reports, 'stop_reason': stop_reason})}\n\n"
+        # late_issues: crawl-level findings, which only exist once every row
+        # is in hand. The rows themselves were streamed long before this, so
+        # without sending them here the browser never sees them and neither
+        # does the crawl it saves.
+        yield f"data: {json.dumps({'type': 'complete', 'total': len(results), 'summary': summary, 'inlinks': inlinks_payload, 'reports': reports, 'late_issues': _crawl_extra, 'stop_reason': stop_reason})}\n\n"
         yield "data: [DONE]\n\n"
         ACTIVE_CRAWL_RULES.pop(crawl_id, None)
         ACTIVE_CRAWL_LIMITS.pop(crawl_id, None)
@@ -3918,7 +5260,6 @@ def crawl_site():
         headers={
             'Cache-Control': 'no-cache',
             'X-Accel-Buffering': 'no',
-            'Access-Control-Allow-Origin': '*'
         }
     )
 
@@ -3936,7 +5277,8 @@ _CRAWL_FOLDER = os.path.expanduser('~/.site-crawler-crawls')
 # to _CRAWL_FOLDER so we don't fight over ownership; this is a read-only
 # union.
 _CRAWL_FOLDERS_RO = [os.path.expanduser(p) for p in
-                     os.environ.get('SITE_CRAWLER_EXTRA_CRAWL_DIRS', '').split(':')
+                     # os.pathsep: ':' on POSIX, ';' on Windows (C:\ has a colon)
+                     os.environ.get('SITE_CRAWLER_EXTRA_CRAWL_DIRS', '').split(os.pathsep)
                      if p.strip()]
 
 # Permanent, append-only title history. Lives inside the crawl folder as a
@@ -4110,6 +5452,7 @@ def crawl_load():
         'reports': d.get('reports', {}),
         'name': d.get('name', ''),
         'seed': d.get('seed', ''),
+        'saved_at': d.get('saved_at'),
     })
 
 
@@ -4118,8 +5461,14 @@ def crawl_delete():
     fn = (request.json or {}).get('file', '')
     if not fn or '/' in fn or '\\' in fn or not fn.endswith('.json'):
         return jsonify({'error': 'Invalid file'}), 400
-    path = _find_crawl_path(fn)
-    if not path:
+    # Only crawls this app saved. The extra folders in
+    # SITE_CRAWLER_EXTRA_CRAWL_DIRS belong to other tools and are read-only
+    # here, but the lookup searched them too, so the delete button on an
+    # "external" crawl removed the other tool's file.
+    path = os.path.join(_CRAWL_FOLDER, fn)
+    if not os.path.exists(path):
+        if _find_crawl_path(fn):
+            return jsonify({'error': 'This crawl belongs to another tool and is read-only here.'}), 403
         return jsonify({'error': 'Not found'}), 404
     try:
         os.remove(path)
@@ -4138,8 +5487,10 @@ def crawl_compare():
     def _load_file(fn):
         if not fn or '/' in fn or '\\' in fn or not fn.endswith('.json'):
             return None, 'Invalid file'
-        fp = os.path.join(_CRAWL_FOLDER, fn)
-        if not os.path.exists(fp):
+        # Any folder the loader lists, so an external crawl that Load opens
+        # can be compared too (it used to answer "Not found").
+        fp = _find_crawl_path(fn)
+        if not fp:
             return None, 'Not found'
         try:
             with open(fp) as f: d = json.load(f)
@@ -4194,7 +5545,7 @@ def crawl_compare():
                 diffs[f] = {'old': av, 'new': bv}
         sa = _norm_list(ar.get('schema_types')); sb = _norm_list(br.get('schema_types'))
         if sa != sb:
-            diffs['schema_types'] = {'old': sa or '—', 'new': sb or '—'}
+            diffs['schema_types'] = {'old': sa or '-', 'new': sb or '-'}
         if diffs:
             changed.append({'url': ar.get('url') or br.get('url'), 'diffs': diffs})
 
@@ -4420,11 +5771,25 @@ def export_crawl_xlsx():
     """
     import io as _io
     import openpyxl
+    from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE as _XL_ILLEGAL
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     data = request.json or {}
     results = data.get('results', [])
     domain = data.get('domain', 'site')
+
+    def _put(sheet, row, col, value):
+        """Write a cell from crawled data. Control characters are dropped:
+        openpyxl refuses them, and one stray \\x07 in a title used to fail
+        the whole export. A string starting with = is kept as text, because
+        openpyxl would otherwise store it as a live formula and a crawled
+        title such as =HYPERLINK(...) would run when the sheet is opened."""
+        if isinstance(value, str):
+            value = _XL_ILLEGAL.sub('', value)
+        cell = sheet.cell(row=row, column=col, value=value)
+        if isinstance(value, str) and value.startswith('='):
+            cell.data_type = 's'
+        return cell
 
     if not results:
         return jsonify({'error': 'No results to export'}), 400
@@ -4468,7 +5833,7 @@ def export_crawl_xlsx():
             '; '.join(r.get('issues', []))
         ]
         for ci, v in enumerate(vals, 1):
-            cell = ws.cell(row=ri, column=ci, value=v)
+            cell = _put(ws, ri, ci, v)
             cell.font = cell_font
             cell.border = thin_border
         status = r.get('status_code', 0)
@@ -4503,9 +5868,9 @@ def export_crawl_xlsx():
             base = issue.split('(')[0].strip()
             issue_map.setdefault(base, []).append(r.get('url', ''))
     for ri, (issue, urls) in enumerate(sorted(issue_map.items(), key=lambda x: -len(x[1])), 2):
-        ws2.cell(row=ri, column=1, value=issue).font = cell_font
-        ws2.cell(row=ri, column=2, value=len(urls)).font = Font(name='Calibri', size=10, bold=True)
-        ws2.cell(row=ri, column=3, value='; '.join(urls[:10])).font = cell_font
+        _put(ws2, ri, 1, issue).font = cell_font
+        _put(ws2, ri, 2, len(urls)).font = Font(name='Calibri', size=10, bold=True)
+        _put(ws2, ri, 3, '; '.join(urls[:10])).font = cell_font
     ws2.column_dimensions['A'].width = 30
     ws2.column_dimensions['B'].width = 8
     ws2.column_dimensions['C'].width = 80
@@ -4514,7 +5879,7 @@ def export_crawl_xlsx():
     extra = data.get('extra_sheets') or []
     used_names = {ws.title, ws2.title}
     def _safe_sheet_name(n):
-        s = _re.sub(r'[:\\/\?\*\[\]]', '-', str(n or 'Sheet'))[:31].strip() or 'Sheet'
+        s = _re.sub(r'[:\\/\?\*\[\]]', '-', _XL_ILLEGAL.sub('', str(n or 'Sheet')))[:31].strip() or 'Sheet'
         if s in used_names:
             base = s[:28]
             i = 2
@@ -4531,7 +5896,7 @@ def export_crawl_xlsx():
             continue
         ws_e = wb.create_sheet(name)
         for ci, h in enumerate(header, 1):
-            cell = ws_e.cell(row=1, column=ci, value=h)
+            cell = _put(ws_e, 1, ci, h)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = Alignment(horizontal='center', vertical='center')
@@ -4542,7 +5907,7 @@ def export_crawl_xlsx():
                     v = ', '.join(str(x) for x in v)
                 elif isinstance(v, dict):
                     v = json.dumps(v, ensure_ascii=False)
-                cell = ws_e.cell(row=ri, column=ci, value=v)
+                cell = _put(ws_e, ri, ci, v)
                 cell.font = cell_font
                 cell.border = thin_border
         for col in ws_e.columns:
@@ -4558,7 +5923,7 @@ def export_crawl_xlsx():
     wb.save(buf)
     buf.seek(0)
 
-    safe_domain = _re.sub(r'[^a-zA-Z0-9.-]', '', (domain or '').lstrip('.').replace('www.', '', 1))
+    safe_domain = _filename_host(domain)
     from datetime import datetime as _dt
     _ts = _dt.now().strftime('%Y-%m-%d-%H%M')
     _name = '-'.join([p for p in ['crawl', safe_domain, _ts] if p]) + '.xlsx'
@@ -4599,7 +5964,7 @@ def export_crawl_sitemap():
             return False
         if r.get('error'):
             return False
-        if r.get('redirect_url'):
+        if _is_redirect_source(r):
             return False
         if r.get('indexable') is False:
             return False
@@ -4651,7 +6016,7 @@ def export_crawl_sitemap():
         lines.append('')
         return '\n'.join(lines)
 
-    safe_domain = _re.sub(r'[^a-zA-Z0-9.-]', '', (domain or '').lstrip('.').replace('www.', '', 1))
+    safe_domain = _filename_host(domain)
     _ts = _dt.now().strftime('%Y-%m-%d-%H%M')
 
     if len(urls) <= URLS_PER_SITEMAP:
