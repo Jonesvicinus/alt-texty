@@ -31,6 +31,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+# Behind Caddy (tailnet hosting): trust one proxy hop so request.remote_addr is
+# the visitor's Tailscale IP, not 127.0.0.1. Keeps saved_by / user map working.
+if os.environ.get('SITE_CRAWLER_BEHIND_PROXY'):
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(levelname)s: %(message)s')
 from alt_text import alt_text_bp  # must import after load_dotenv() sets OPENAI_API_KEY
 app.register_blueprint(alt_text_bp)
@@ -765,6 +770,11 @@ def restart_self():
         return jsonify({'ok': True, 'message': 'Restarting in ~3s'})
 
     # POSIX
+    if os.environ.get('SITE_CRAWLER_SUPERVISED'):
+        # launchd (KeepAlive) owns the process: exit and let it respawn us, or
+        # the nohup copy below races it for the port.
+        threading.Timer(1.0, lambda: os._exit(0)).start()
+        return jsonify({'ok': True, 'message': 'Restarting in ~2s'})
     log_path = os.path.expanduser('~/site-crawler/.restart.log')
     cmd = (
         f"sleep 1 && "
@@ -3280,6 +3290,14 @@ def crawl_site():
             'Sec-Fetch-User': '?1',
         })
 
+        # Pantheon sandbox/dev environments (*.pantheonsite.io) answer any
+        # Accept: text/html request with a "Sandbox Environment Notice"
+        # interstitial whose Continue button just sets this cookie. Without
+        # it the crawl dead-ends on the notice page with zero links.
+        _seed_host = urlparse(seed_url).hostname or ''
+        if _seed_host.endswith('.pantheonsite.io'):
+            session.cookies.set('Deterrence-Bypass', '1', domain=_seed_host, path='/')
+
         # Crawl identity override (Googlebot/bingbot/mobile/custom). Applied to
         # the requests session and mirrored onto the browsers below so every
         # fetch path presents the same agent.
@@ -4670,5 +4688,7 @@ def export_crawl_sitemap():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5002, debug=False, threaded=True)
+    app.run(host=os.environ.get('SITE_CRAWLER_HOST', '0.0.0.0'),
+            port=int(os.environ.get('SITE_CRAWLER_PORT', '5002')),
+            debug=False, threaded=True)
 
